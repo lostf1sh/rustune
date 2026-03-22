@@ -34,6 +34,8 @@ pub fn run() {
 
             // Load settings
             let (app_settings, config_path) = settings::load_settings(&app_data_dir);
+            let auto_watch = app_settings.auto_watch;
+            let scan_on_startup = app_settings.scan_on_startup;
             let settings_state: SettingsState = Mutex::new((app_settings, config_path));
             app.manage(settings_state);
 
@@ -42,12 +44,29 @@ pub fn run() {
             let db_conn: db::DbConn = Arc::new(Mutex::new(conn));
             app.manage(db_conn.clone());
 
-            // Start library file watcher
+            // Start library file watcher (only if autoWatch enabled)
             let watcher = library::watcher::LibraryWatcher::new(db_conn, app.handle().clone());
-            if let Err(e) = watcher.watch_all_roots() {
-                log::warn!("Failed to start library watchers: {}", e);
+            if auto_watch {
+                if let Err(e) = watcher.watch_all_roots() {
+                    log::warn!("Failed to start library watchers: {}", e);
+                }
             }
             app.manage(watcher);
+
+            // Scan on startup if enabled
+            if scan_on_startup {
+                let db_for_scan: db::DbConn = app.state::<db::DbConn>().inner().clone();
+                let app_handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    let conn = db_for_scan.lock().unwrap();
+                    let roots = db::queries::get_library_roots(&conn).unwrap_or_default();
+                    drop(conn);
+                    for root in roots {
+                        let conn = db_for_scan.lock().unwrap();
+                        library::scanner::scan_folder(&conn, &root.path, &app_handle).ok();
+                    }
+                });
+            }
 
             Ok(())
         })

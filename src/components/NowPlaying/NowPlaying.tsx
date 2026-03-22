@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePlayerStore } from "../../stores/playerStore";
 import { useLibraryStore } from "../../stores/libraryStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { commands, type AlbumArt, type LyricsResult } from "../../lib/commands";
 import styles from "./NowPlaying.module.css";
 
@@ -189,7 +190,8 @@ export function NowPlaying() {
     });
 
     const trackMeta = tracks.find((t) => t.path === currentTrack);
-    if (trackMeta?.title && trackMeta?.artist) {
+    const autoFetch = useSettingsStore.getState().settings.autoFetchLyrics;
+    if (autoFetch && trackMeta?.title && trackMeta?.artist) {
       const dur = trackMeta.durationMs ? trackMeta.durationMs / 1000 : durationSecs;
       commands
         .fetchLyrics(currentTrack!, trackMeta.title, trackMeta.artist, trackMeta.album ?? "", dur)

@@ -8,7 +8,7 @@
 
 /* Search */
 .header {
-  padding: 16px 20px 0;
+  padding: var(--header-padding);
   flex-shrink: 0;
 }
 
@@ -133,8 +133,8 @@
 }
 
 .row td {
-  padding: 6px 8px;
-  font-size: 13px;
+  padding: var(--row-padding);
+  font-size: var(--row-font-size);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

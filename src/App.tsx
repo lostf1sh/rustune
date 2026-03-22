@@ -26,12 +26,21 @@ function App() {
   const viewMode = usePlaylistStore((s) => s.viewMode);
 
   const loadSettings = useSettingsStore((s) => s.loadSettings);
+  const compactMode = useSettingsStore((s) => s.settings.compactMode);
+
+  useEffect(() => {
+    document.getElementById("root")?.setAttribute("data-compact", String(compactMode));
+  }, [compactMode]);
 
   useEffect(() => {
     loadTracks();
     loadRoots();
     loadPlaylists();
-    loadSettings();
+    loadSettings().then(() => {
+      // Apply default volume from settings on startup
+      const vol = useSettingsStore.getState().settings.defaultVolume;
+      commands.setVolume(vol);
+    });
   }, [loadTracks, loadRoots, loadPlaylists, loadSettings]);
 
   // Auto-reload library on filesystem changes

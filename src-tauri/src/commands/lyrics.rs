@@ -3,6 +3,7 @@ use tauri::State;
 use crate::db::queries;
 use crate::db::DbConn;
 use crate::lyrics::lrclib::{self, LyricsResult};
+use crate::settings::SettingsState;
 
 #[tauri::command]
 pub async fn fetch_lyrics(
@@ -12,16 +13,20 @@ pub async fn fetch_lyrics(
     album: String,
     duration_secs: f64,
     db: State<'_, DbConn>,
+    settings: State<'_, SettingsState>,
 ) -> Result<LyricsResult, String> {
-    // 1. Check for local .lrc file
-    let lrc_path = std::path::Path::new(&track_path).with_extension("lrc");
-    if lrc_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&lrc_path) {
-            let synced = lrclib::parse_lrc(&content);
-            return Ok(LyricsResult {
-                synced: if synced.is_empty() { None } else { Some(synced) },
-                plain: Some(content),
-            });
+    // 1. Check for local .lrc file (if preferLocalLrc enabled)
+    let prefer_local = settings.lock().map(|s| s.0.prefer_local_lrc).unwrap_or(true);
+    if prefer_local {
+        let lrc_path = std::path::Path::new(&track_path).with_extension("lrc");
+        if lrc_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&lrc_path) {
+                let synced = lrclib::parse_lrc(&content);
+                return Ok(LyricsResult {
+                    synced: if synced.is_empty() { None } else { Some(synced) },
+                    plain: Some(content),
+                });
+            }
         }
     }
 
