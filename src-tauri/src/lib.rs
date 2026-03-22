@@ -3,11 +3,14 @@ mod commands;
 mod db;
 mod library;
 mod lyrics;
+mod settings;
 mod tags;
 
 use audio::engine::AudioEngine;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
+
+use settings::SettingsState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -27,8 +30,14 @@ pub fn run() {
             let engine = AudioEngine::new(app.handle().clone());
             app.manage(engine);
 
-            // Initialize database
             let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+
+            // Load settings
+            let (app_settings, config_path) = settings::load_settings(&app_data_dir);
+            let settings_state: SettingsState = Mutex::new((app_settings, config_path));
+            app.manage(settings_state);
+
+            // Initialize database
             let conn = db::init_db(&app_data_dir).map_err(|e| e.to_string())?;
             let db_conn: db::DbConn = Arc::new(Mutex::new(conn));
             app.manage(db_conn.clone());
@@ -84,6 +93,9 @@ pub fn run() {
             commands::tags::read_tags,
             commands::tags::write_tags,
             commands::lyrics::fetch_lyrics,
+            commands::settings::get_settings,
+            commands::settings::update_settings,
+            commands::settings::reset_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,0 +1,181 @@
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg);
+}
+
+.scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  padding: 24px 20px 40px;
+}
+
+.inner {
+  width: 100%;
+  max-width: 500px;
+}
+
+.pageTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+  margin-bottom: 28px;
+}
+
+/* ── Sections ── */
+.section {
+  margin-bottom: 24px;
+}
+
+.sectionTitle {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Setting rows ── */
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+}
+
+.row + .row {
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.rowInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.label {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 400;
+}
+
+.desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+/* ── Toggle switch ── */
+.toggle {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  border: none;
+  background: var(--surface-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+  padding: 0;
+}
+
+.toggle.toggleOn {
+  background: var(--now-playing);
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #080808;
+  transition: transform 0.2s var(--ease-out);
+}
+
+.toggleOn .toggleThumb {
+  transform: translateX(14px);
+}
+
+/* ── Slider ── */
+.sliderWrap {
+  flex-shrink: 0;
+  width: 120px;
+}
+
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--now-playing) 0%,
+    var(--now-playing) var(--progress),
+    var(--surface-3) var(--progress),
+    var(--surface-3) 100%
+  );
+  outline: none;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--now-playing);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--now-playing);
+  border: none;
+  cursor: pointer;
+}
+
+/* ── Reset ── */
+.resetArea {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.resetBtn {
+  background: none;
+  border: 1px solid var(--surface-3);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 6px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.resetBtn:hover {
+  border-color: var(--text-muted);
+  color: var(--text-secondary);
+}

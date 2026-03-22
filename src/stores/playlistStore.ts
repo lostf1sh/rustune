@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { commands, type Playlist, type Track } from "../lib/commands";
 
-export type ViewMode = "library" | "playlist" | "artists" | "albums" | "favorites" | "recentPlays";
+export type ViewMode = "library" | "playlist" | "artists" | "albums" | "favorites" | "recentPlays" | "settings";
 
 interface PlaylistStore {
   playlists: Playlist[];
@@ -36,6 +36,7 @@ interface PlaylistStore {
   clearAlbumSelection: () => void;
   viewFavorites: () => Promise<void>;
   viewRecentPlays: () => Promise<void>;
+  viewSettings: () => void;
 }
 
 const clearBrowseState = {
@@ -132,6 +133,10 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
 
   clearAlbumSelection: () => {
     set({ selectedAlbum: null, selectedAlbumTracks: [] });
+  },
+
+  viewSettings: () => {
+    set({ viewMode: "settings", ...clearBrowseState });
   },
 
   viewFavorites: async () => {

@@ -155,4 +155,18 @@ export const commands = {
 
   fetchLyrics: (trackPath: string, title: string, artist: string, album: string, durationSecs: number) =>
     invoke<LyricsResult>("fetch_lyrics", { trackPath, title, artist, album, durationSecs }),
+
+  getSettings: () => invoke<AppSettings>("get_settings"),
+  updateSettings: (patch: AppSettings) => invoke<AppSettings>("update_settings", { patch }),
+  resetSettings: () => invoke<AppSettings>("reset_settings"),
 };
+
+export interface AppSettings {
+  autoWatch: boolean;
+  scanOnStartup: boolean;
+  autoFetchLyrics: boolean;
+  preferLocalLrc: boolean;
+  defaultVolume: number;
+  compactMode: boolean;
+  showQueueBadge: boolean;
+}

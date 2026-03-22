@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePlayerStore } from "../../stores/playerStore";
 import { useLibraryStore } from "../../stores/libraryStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { commands, type AlbumArt } from "../../lib/commands";
 import styles from "./PlayerBar.module.css";
 
@@ -275,7 +276,7 @@ export function PlayerBar() {
             <path d="M2 4h9M2 8h7M2 12h5" />
             <path d="M12 7v6M9 10h6" />
           </svg>
-          {queue.length > 0 && !queueOpen && (
+          {queue.length > 0 && !queueOpen && useSettingsStore.getState().settings.showQueueBadge && (
             <span className={styles.queueBadge}>{queue.length}</span>
           )}
         </button>

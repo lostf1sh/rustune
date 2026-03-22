@@ -9,9 +9,11 @@ import { TrackList } from "./components/TrackList/TrackList";
 import { ArtistView } from "./components/ArtistView/ArtistView";
 import { AlbumView } from "./components/AlbumView/AlbumView";
 import { NowPlaying } from "./components/NowPlaying/NowPlaying";
+import { SettingsView } from "./components/SettingsView/SettingsView";
 import { usePlayerStore } from "./stores/playerStore";
 import { useLibraryStore } from "./stores/libraryStore";
 import { usePlaylistStore } from "./stores/playlistStore";
+import { useSettingsStore } from "./stores/settingsStore";
 import { commands, type PlaybackState } from "./lib/commands";
 import styles from "./App.module.css";
 
@@ -23,11 +25,14 @@ function App() {
   const loadPlaylists = usePlaylistStore((s) => s.loadPlaylists);
   const viewMode = usePlaylistStore((s) => s.viewMode);
 
+  const loadSettings = useSettingsStore((s) => s.loadSettings);
+
   useEffect(() => {
     loadTracks();
     loadRoots();
     loadPlaylists();
-  }, [loadTracks, loadRoots, loadPlaylists]);
+    loadSettings();
+  }, [loadTracks, loadRoots, loadPlaylists, loadSettings]);
 
   // Auto-reload library on filesystem changes
   useEffect(() => {
@@ -157,6 +162,7 @@ function App() {
             <Sidebar />
             {viewMode === "artists" ? <ArtistView /> :
              viewMode === "albums" ? <AlbumView /> :
+             viewMode === "settings" ? <SettingsView /> :
              <TrackList />}
           </div>
           <PlayerBar />

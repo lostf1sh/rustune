@@ -18,6 +18,7 @@ export function Sidebar() {
     viewAlbums,
     viewFavorites,
     viewRecentPlays,
+    viewSettings,
     createPlaylist,
     deletePlaylist,
   } = usePlaylistStore();
@@ -200,6 +201,16 @@ export function Sidebar() {
       </nav>
 
       <div className={styles.bottom}>
+        <button
+          className={`${styles.navItem} ${styles.settingsBtn} ${viewMode === "settings" ? styles.active : ""}`}
+          onClick={viewSettings}
+        >
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M7.5 9.5a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" strokeWidth="1.2" />
+            <path d="M12.1 9.3l.8.5a.5.5 0 01.2.6l-.7 1.2a.5.5 0 01-.6.2l-.9-.3a4.5 4.5 0 01-.9.5l-.2 1a.5.5 0 01-.5.4H9.1a.5.5 0 01-.5-.4l-.2-1a4.5 4.5 0 01-.9-.5l-.9.3a.5.5 0 01-.6-.2l-.7-1.2a.5.5 0 01.2-.6l.8-.5v-1l-.8-.5a.5.5 0 01-.2-.6l.7-1.2a.5.5 0 01.6-.2l.9.3a4.5 4.5 0 01.9-.5l.2-1a.5.5 0 01.5-.4h1.2a.5.5 0 01.5.4l.2 1c.3.1.6.3.9.5l.9-.3a.5.5 0 01.6.2l.7 1.2a.5.5 0 01-.2.6l-.8.5v1z" stroke="currentColor" strokeWidth="1.1" />
+          </svg>
+          Settings
+        </button>
         <button
           className={styles.addBtn}
           onClick={handleAddFolder}
