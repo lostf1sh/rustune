@@ -62,6 +62,8 @@ pub fn run() {
             commands::playlist::remove_track_from_playlist,
             commands::playlist::get_playlist_tracks,
             commands::tags::get_album_art,
+            commands::tags::read_tags,
+            commands::tags::write_tags,
             commands::lyrics::fetch_lyrics,
         ])
         .run(tauri::generate_context!())

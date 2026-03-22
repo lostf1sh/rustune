@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLibraryStore } from "../../stores/libraryStore";
 import { usePlayerStore } from "../../stores/playerStore";
 import { usePlaylistStore } from "../../stores/playlistStore";
+import { TagEditor } from "../TagEditor/TagEditor";
 import type { Track } from "../../lib/commands";
 import styles from "./TrackList.module.css";
 
@@ -27,6 +28,7 @@ interface ContextMenuState {
   x: number;
   y: number;
   trackId: number;
+  trackPath: string;
 }
 
 export function TrackList() {
@@ -45,6 +47,8 @@ export function TrackList() {
   const searchRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [editingPath, setEditingPath] = useState<string | null>(null);
+  const loadTracks = useLibraryStore((s) => s.loadTracks);
 
   const isPlaylistView = viewMode === "playlist";
   const displayTracks: Track[] = isPlaylistView ? activePlaylistTracks : filteredTracks;
@@ -74,10 +78,9 @@ export function TrackList() {
     await playQueue(paths, index);
   };
 
-  const handleContextMenu = (e: React.MouseEvent, trackId: number) => {
+  const handleContextMenu = (e: React.MouseEvent, trackId: number, trackPath: string) => {
     e.preventDefault();
-    if (playlists.length === 0) return;
-    setContextMenu({ x: e.clientX, y: e.clientY, trackId });
+    setContextMenu({ x: e.clientX, y: e.clientY, trackId, trackPath });
   };
 
   const handleAddToPlaylist = async (playlistId: number) => {
@@ -189,7 +192,7 @@ export function TrackList() {
                   key={`${track.id}-${i}`}
                   className={`${styles.row} ${isCurrent ? styles.playing : ""}`}
                   onDoubleClick={() => handlePlay(i)}
-                  onContextMenu={(e) => handleContextMenu(e, track.id)}
+                  onContextMenu={(e) => handleContextMenu(e, track.id, track.path)}
                 >
                   <td className={styles.cellNum}>
                     {isCurrent && isPlaying ? (
@@ -238,22 +241,45 @@ export function TrackList() {
       </div>
 
       {/* Context menu */}
-      {contextMenu && playlists.length > 0 && (
+      {contextMenu && (
         <div
           className={styles.contextMenu}
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
-          <div className={styles.contextLabel}>Add to playlist</div>
-          {playlists.map((pl) => (
-            <button
-              key={pl.id}
-              className={styles.contextItem}
-              onClick={() => handleAddToPlaylist(pl.id)}
-            >
-              {pl.name}
-            </button>
-          ))}
+          {playlists.length > 0 && (
+            <>
+              <div className={styles.contextLabel}>Add to playlist</div>
+              {playlists.map((pl) => (
+                <button
+                  key={pl.id}
+                  className={styles.contextItem}
+                  onClick={() => handleAddToPlaylist(pl.id)}
+                >
+                  {pl.name}
+                </button>
+              ))}
+              <div className={styles.contextDivider} />
+            </>
+          )}
+          <button
+            className={styles.contextItem}
+            onClick={() => {
+              setEditingPath(contextMenu.trackPath);
+              setContextMenu(null);
+            }}
+          >
+            Edit Tags
+          </button>
         </div>
+      )}
+
+      {/* Tag Editor modal */}
+      {editingPath && (
+        <TagEditor
+          path={editingPath}
+          onClose={() => setEditingPath(null)}
+          onSaved={loadTracks}
+        />
       )}
     </div>
   );

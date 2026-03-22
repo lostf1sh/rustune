@@ -333,3 +333,9 @@
   background: var(--surface-2);
   color: var(--text-primary);
 }
+
+.contextDivider {
+  height: 1px;
+  background: var(--border);
+  margin: 3px 8px;
+}

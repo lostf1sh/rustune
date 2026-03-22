@@ -133,3 +133,13 @@ fn extract_and_insert(conn: &Connection, path: &Path, ext: &str) -> Result<(), S
     upsert_track(conn, &insert)?;
     Ok(())
 }
+
+pub fn rescan_file(conn: &Connection, path_str: &str) -> Result<(), String> {
+    let path = Path::new(path_str);
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .unwrap_or_default();
+    extract_and_insert(conn, path, &ext)
+}

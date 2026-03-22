@@ -43,6 +43,28 @@ export interface LyricsResult {
   plain: string | null;
 }
 
+export interface TagInfo {
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  albumArtist: string | null;
+  genre: string | null;
+  year: number | null;
+  trackNumber: number | null;
+  discNumber: number | null;
+}
+
+export interface TagUpdate {
+  title?: string | null;
+  artist?: string | null;
+  album?: string | null;
+  albumArtist?: string | null;
+  genre?: string | null;
+  year?: number | null;
+  trackNumber?: number | null;
+  discNumber?: number | null;
+}
+
 export interface AlbumArt {
   data: string;
   mimeType: string;
@@ -93,6 +115,10 @@ export const commands = {
 
   getAlbumArt: (path: string) =>
     invoke<AlbumArt | null>("get_album_art", { path }),
+
+  readTags: (path: string) => invoke<TagInfo>("read_tags", { path }),
+  writeTags: (path: string, tags: TagUpdate) =>
+    invoke("write_tags", { path, tags }),
 
   fetchLyrics: (title: string, artist: string, album: string, durationSecs: number) =>
     invoke<LyricsResult>("fetch_lyrics", { title, artist, album, durationSecs }),
