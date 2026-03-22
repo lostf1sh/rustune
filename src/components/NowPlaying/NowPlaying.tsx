@@ -129,7 +129,6 @@ export function NowPlaying() {
         {/* Player column */}
         <div className={`${styles.playerColumn} ${hasLyrics ? styles.playerColumnWithLyrics : ""}`}>
           <div className={`${styles.artFrame} ${hasLyrics ? styles.artFrameSmall : ""}`}>
-            <div className={`${styles.artGlow} ${isPlaying ? styles.artGlowActive : ""}`} />
             {art ? (
               <img
                 className={`${styles.art} ${artLoaded ? styles.artVisible : ""}`}

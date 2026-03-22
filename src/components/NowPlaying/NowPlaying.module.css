@@ -3,11 +3,7 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(
-    ellipse at 50% 38%,
-    rgba(30, 28, 24, 0.5) 0%,
-    var(--bg) 65%
-  );
+  background: var(--bg);
   position: relative;
   animation: screenIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
@@ -88,19 +84,6 @@
 .artFrameSmall {
   width: 260px;
   height: 260px;
-}
-
-.artGlow {
-  position: absolute;
-  inset: 8px;
-  border-radius: 12px;
-  transition: box-shadow 0.6s ease;
-}
-
-.artGlowActive {
-  box-shadow:
-    0 24px 80px -12px rgba(200, 155, 60, 0.1),
-    0 8px 24px -8px rgba(0, 0, 0, 0.6);
 }
 
 .art {
@@ -300,7 +283,7 @@
 
 /* ── Lyrics column ── */
 .lyricsColumn {
-  width: 360px;
+  width: 420px;
   max-height: 100%;
   display: flex;
   flex-direction: column;
@@ -367,14 +350,15 @@
 }
 
 .lyricsLine {
-  font-size: 15px;
+  font-size: 16px;
   color: var(--text-muted);
-  padding: 6px 12px;
+  padding: 8px 12px;
   border-radius: 6px;
   cursor: pointer;
-  transition: color 0.3s ease, font-size 0.3s ease, opacity 0.3s ease;
-  opacity: var(--dist-opacity, 0.4);
-  line-height: 1.5;
+  transition: color 0.35s ease, opacity 0.35s ease, font-weight 0.35s ease;
+  opacity: var(--dist-opacity, 0.35);
+  line-height: 1.55;
+  font-weight: 400;
 }
 
 .lyricsLine:hover {
@@ -382,7 +366,6 @@
 }
 
 .lyricsLineCurrent {
-  font-size: 18px;
   font-weight: 600;
   color: var(--now-playing);
   opacity: 1 !important;
