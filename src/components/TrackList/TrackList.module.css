@@ -101,6 +101,10 @@
   width: 20%;
 }
 
+.thFav {
+  width: 32px;
+}
+
 .thDuration {
   width: 72px;
   text-align: right !important;
@@ -180,6 +184,38 @@
 
 .cellAlbum {
   color: var(--text-muted);
+}
+
+.cellFav {
+  width: 32px;
+  text-align: center;
+}
+
+.favBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.1s, color 0.1s;
+}
+
+.favBtn.favActive {
+  opacity: 1;
+  color: var(--now-playing);
+}
+
+.row:hover .favBtn {
+  opacity: 1;
+}
+
+.favBtn:hover {
+  color: var(--now-playing);
 }
 
 .cellDuration {

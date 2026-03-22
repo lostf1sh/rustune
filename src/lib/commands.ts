@@ -31,6 +31,7 @@ export interface Track {
   sampleRate: number | null;
   bitDepth: number | null;
   hasArt: boolean;
+  favorite: boolean;
 }
 
 export interface LyricsLine {
@@ -127,6 +128,11 @@ export const commands = {
   getAlbums: () => invoke<AlbumInfo[]>("get_albums"),
   getAlbumTracks: (album: string, albumArtist: string | null) =>
     invoke<Track[]>("get_album_tracks", { album, albumArtist }),
+  toggleFavorite: (trackId: number) => invoke<boolean>("toggle_favorite", { trackId }),
+  getFavorites: () => invoke<Track[]>("get_favorites"),
+  recordPlay: (trackId: number) => invoke("record_play", { trackId }),
+  getRecentPlays: (limit?: number) => invoke<Track[]>("get_recent_plays", { limit: limit ?? 50 }),
+  insertNextInQueue: (path: string) => invoke("insert_next_in_queue", { path }),
 
   createPlaylist: (name: string) => invoke<Playlist>("create_playlist", { name }),
   getPlaylists: () => invoke<Playlist[]>("get_playlists"),

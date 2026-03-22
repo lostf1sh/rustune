@@ -3,7 +3,7 @@ import { useLibraryStore } from "../../stores/libraryStore";
 import { usePlayerStore } from "../../stores/playerStore";
 import { usePlaylistStore } from "../../stores/playlistStore";
 import { TagEditor } from "../TagEditor/TagEditor";
-import type { Track } from "../../lib/commands";
+import { commands, type Track } from "../../lib/commands";
 import styles from "./TrackList.module.css";
 
 function formatDuration(ms: number | null): string {
@@ -50,6 +50,8 @@ export function TrackList() {
     viewMode,
     activePlaylistId,
     activePlaylistTracks,
+    favoriteTracks,
+    recentTracks,
     playlists,
     addTracksToPlaylist,
     removeTrackFromPlaylist,
@@ -59,11 +61,34 @@ export function TrackList() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editingPath, setEditingPath] = useState<string | null>(null);
+  const [localFavorites, setLocalFavorites] = useState<Set<number>>(new Set());
   const loadTracks = useLibraryStore((s) => s.loadTracks);
 
   const isPlaylistView = viewMode === "playlist";
-  const displayTracks: Track[] = isPlaylistView ? activePlaylistTracks : filteredTracks;
+  const showSearch = viewMode === "library";
+  const canSort = viewMode === "library";
+
+  const displayTracks: Track[] =
+    viewMode === "playlist" ? activePlaylistTracks :
+    viewMode === "favorites" ? favoriteTracks :
+    viewMode === "recentPlays" ? recentTracks :
+    filteredTracks;
+
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId);
+
+  const viewTitle =
+    viewMode === "favorites" ? "Favorites" :
+    viewMode === "recentPlays" ? "Recently Played" :
+    null;
+
+  // Sync local favorites from track data
+  useEffect(() => {
+    const favs = new Set<number>();
+    for (const t of displayTracks) {
+      if (t.favorite) favs.add(t.id);
+    }
+    setLocalFavorites(favs);
+  }, [displayTracks]);
 
   // Close context menu on click outside
   useEffect(() => {
@@ -101,7 +126,18 @@ export function TrackList() {
     }
   };
 
-  if (displayTracks.length === 0 && searchQuery) {
+  const handleToggleFavorite = async (e: React.MouseEvent, trackId: number) => {
+    e.stopPropagation();
+    const newVal = await commands.toggleFavorite(trackId);
+    setLocalFavorites((prev) => {
+      const next = new Set(prev);
+      if (newVal) next.add(trackId);
+      else next.delete(trackId);
+      return next;
+    });
+  };
+
+  if (displayTracks.length === 0 && searchQuery && showSearch) {
     return (
       <div className={styles.container}>
         <div className={styles.header}>
@@ -121,13 +157,13 @@ export function TrackList() {
         </div>
         <div className={styles.empty}>
           <p className={styles.emptyTitle}>No results</p>
-          <p className={styles.emptyHint}>No tracks match "{searchQuery}"</p>
+          <p className={styles.emptyHint}>No tracks match &ldquo;{searchQuery}&rdquo;</p>
         </div>
       </div>
     );
   }
 
-  if (displayTracks.length === 0 && !searchQuery) {
+  if (displayTracks.length === 0) {
     return (
       <div className={styles.container}>
         <div className={styles.empty}>
@@ -143,12 +179,16 @@ export function TrackList() {
             </svg>
           </div>
           <p className={styles.emptyTitle}>
-            {isPlaylistView ? "Playlist is empty" : "No tracks yet"}
+            {viewMode === "favorites" ? "No favorites yet" :
+             viewMode === "recentPlays" ? "No recent plays" :
+             isPlaylistView ? "Playlist is empty" :
+             "No tracks yet"}
           </p>
           <p className={styles.emptyHint}>
-            {isPlaylistView
-              ? "Right-click tracks in Library to add them"
-              : "Add a folder from the sidebar to get started"}
+            {viewMode === "favorites" ? "Click the heart icon on any track" :
+             viewMode === "recentPlays" ? "Start playing some music" :
+             isPlaylistView ? "Right-click tracks in Library to add them" :
+             "Add a folder from the sidebar to get started"}
           </p>
         </div>
       </div>
@@ -163,6 +203,13 @@ export function TrackList() {
             <h2 className={styles.playlistTitle}>{activePlaylist.name}</h2>
             <span className={styles.playlistMeta}>
               {activePlaylist.trackCount} track{activePlaylist.trackCount !== 1 ? "s" : ""}
+            </span>
+          </div>
+        ) : viewTitle ? (
+          <div className={styles.playlistHeader}>
+            <h2 className={styles.playlistTitle}>{viewTitle}</h2>
+            <span className={styles.playlistMeta}>
+              {displayTracks.length} track{displayTracks.length !== 1 ? "s" : ""}
             </span>
           </div>
         ) : (
@@ -193,21 +240,22 @@ export function TrackList() {
           <thead>
             <tr>
               <th className={styles.thNum}>#</th>
-              <th className={styles.thTitle} onClick={() => !isPlaylistView && setSort("title")}>
-                TITLE {!isPlaylistView && <SortIcon active={sortField === "title"} dir={sortDir} />}
+              <th className={styles.thTitle} onClick={() => canSort && setSort("title")}>
+                TITLE {canSort && <SortIcon active={sortField === "title"} dir={sortDir} />}
               </th>
-              <th className={styles.thArtist} onClick={() => !isPlaylistView && setSort("artist")}>
-                ARTIST {!isPlaylistView && <SortIcon active={sortField === "artist"} dir={sortDir} />}
+              <th className={styles.thArtist} onClick={() => canSort && setSort("artist")}>
+                ARTIST {canSort && <SortIcon active={sortField === "artist"} dir={sortDir} />}
               </th>
-              <th className={styles.thAlbum} onClick={() => !isPlaylistView && setSort("album")}>
-                ALBUM {!isPlaylistView && <SortIcon active={sortField === "album"} dir={sortDir} />}
+              <th className={styles.thAlbum} onClick={() => canSort && setSort("album")}>
+                ALBUM {canSort && <SortIcon active={sortField === "album"} dir={sortDir} />}
               </th>
-              <th className={styles.thDuration} onClick={() => !isPlaylistView && setSort("duration")}>
+              <th className={styles.thFav} />
+              <th className={styles.thDuration} onClick={() => canSort && setSort("duration")}>
                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                   <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.1" />
                   <path d="M6.5 3.5v3.5l2.5 1.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
                 </svg>
-                {!isPlaylistView && <SortIcon active={sortField === "duration"} dir={sortDir} />}
+                {canSort && <SortIcon active={sortField === "duration"} dir={sortDir} />}
               </th>
               {isPlaylistView && <th className={styles.thAction} />}
             </tr>
@@ -215,6 +263,7 @@ export function TrackList() {
           <tbody>
             {displayTracks.map((track, i) => {
               const isCurrent = currentTrack === track.path;
+              const isFav = localFavorites.has(track.id);
               return (
                 <tr
                   key={`${track.id}-${i}`}
@@ -241,6 +290,17 @@ export function TrackList() {
                   </td>
                   <td className={styles.cellAlbum}>
                     {track.album ?? "—"}
+                  </td>
+                  <td className={styles.cellFav}>
+                    <button
+                      className={`${styles.favBtn} ${isFav ? styles.favActive : ""}`}
+                      onClick={(e) => handleToggleFavorite(e, track.id)}
+                      title={isFav ? "Remove from favorites" : "Add to favorites"}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 15 15" fill={isFav ? "currentColor" : "none"}>
+                        <path d="M7.5 13l-5.2-5.4A3.2 3.2 0 017.5 3.1a3.2 3.2 0 015.2 4.5L7.5 13z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+                      </svg>
+                    </button>
                   </td>
                   <td className={styles.cellDuration}>
                     {formatDuration(track.durationMs)}
@@ -274,6 +334,25 @@ export function TrackList() {
           className={styles.contextMenu}
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
+          <button
+            className={styles.contextItem}
+            onClick={() => {
+              commands.insertNextInQueue(contextMenu.trackPath);
+              setContextMenu(null);
+            }}
+          >
+            Play Next
+          </button>
+          <button
+            className={styles.contextItem}
+            onClick={() => {
+              commands.addToQueue(contextMenu.trackPath);
+              setContextMenu(null);
+            }}
+          >
+            Add to Queue
+          </button>
+          <div className={styles.contextDivider} />
           {playlists.length > 0 && (
             <>
               <div className={styles.contextLabel}>Add to playlist</div>

@@ -142,6 +142,18 @@ impl QueueState {
         self.repeat
     }
 
+    pub fn insert_after_current(&mut self, path: String) {
+        let insert_pos = match self.current_index {
+            Some(idx) => idx + 1,
+            None => 0,
+        };
+        self.tracks.insert(insert_pos, path.clone());
+        self.original_tracks.push(path);
+        if self.current_index.is_none() {
+            self.current_index = Some(0);
+        }
+    }
+
     pub fn add_track(&mut self, path: String) {
         self.original_tracks.push(path.clone());
         self.tracks.push(path);

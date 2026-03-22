@@ -25,6 +25,7 @@ pub enum AudioCommand {
     CycleRepeat,
     AddToQueue(String),
     RemoveFromQueue(usize),
+    InsertNextInQueue(String),
     ClearQueue,
 }
 
@@ -184,6 +185,11 @@ fn audio_thread_main(
                 }
                 Ok(AudioCommand::RemoveFromQueue(index)) => {
                     queue.remove_track(index);
+                    let mut s = state.lock().unwrap();
+                    sync_queue_state(&queue, &mut s);
+                }
+                Ok(AudioCommand::InsertNextInQueue(path)) => {
+                    queue.insert_after_current(path);
                     let mut s = state.lock().unwrap();
                     sync_queue_state(&queue, &mut s);
                 }

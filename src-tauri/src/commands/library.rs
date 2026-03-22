@@ -72,3 +72,27 @@ pub fn get_album_tracks(
     let conn = db.lock().map_err(|e| e.to_string())?;
     queries::get_album_tracks(&conn, &album, album_artist.as_deref())
 }
+
+#[tauri::command]
+pub fn toggle_favorite(track_id: i64, db: State<'_, DbConn>) -> Result<bool, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    queries::toggle_favorite(&conn, track_id)
+}
+
+#[tauri::command]
+pub fn get_favorites(db: State<'_, DbConn>) -> Result<Vec<Track>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    queries::get_favorites(&conn)
+}
+
+#[tauri::command]
+pub fn record_play(track_id: i64, db: State<'_, DbConn>) -> Result<(), String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    queries::record_play(&conn, track_id)
+}
+
+#[tauri::command]
+pub fn get_recent_plays(limit: Option<i64>, db: State<'_, DbConn>) -> Result<Vec<Track>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    queries::get_recent_plays(&conn, limit.unwrap_or(50))
+}

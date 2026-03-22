@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { commands, type Playlist, type Track } from "../lib/commands";
 
-export type ViewMode = "library" | "playlist" | "artists" | "albums";
+export type ViewMode = "library" | "playlist" | "artists" | "albums" | "favorites" | "recentPlays";
 
 interface PlaylistStore {
   playlists: Playlist[];
@@ -17,6 +17,10 @@ interface PlaylistStore {
   selectedAlbum: { album: string; albumArtist: string | null } | null;
   selectedAlbumTracks: Track[];
 
+  // Favorites / Recent
+  favoriteTracks: Track[];
+  recentTracks: Track[];
+
   loadPlaylists: () => Promise<void>;
   createPlaylist: (name: string) => Promise<Playlist>;
   renamePlaylist: (id: number, name: string) => Promise<void>;
@@ -30,6 +34,8 @@ interface PlaylistStore {
   viewAlbums: () => void;
   selectAlbum: (album: string, albumArtist: string | null) => Promise<void>;
   clearAlbumSelection: () => void;
+  viewFavorites: () => Promise<void>;
+  viewRecentPlays: () => Promise<void>;
 }
 
 const clearBrowseState = {
@@ -39,6 +45,8 @@ const clearBrowseState = {
   selectedArtistTracks: [] as Track[],
   selectedAlbum: null,
   selectedAlbumTracks: [] as Track[],
+  favoriteTracks: [] as Track[],
+  recentTracks: [] as Track[],
 };
 
 export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
@@ -50,6 +58,8 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   selectedArtistTracks: [],
   selectedAlbum: null,
   selectedAlbumTracks: [],
+  favoriteTracks: [],
+  recentTracks: [],
 
   loadPlaylists: async () => {
     const playlists = await commands.getPlaylists();
@@ -122,5 +132,15 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
 
   clearAlbumSelection: () => {
     set({ selectedAlbum: null, selectedAlbumTracks: [] });
+  },
+
+  viewFavorites: async () => {
+    const tracks = await commands.getFavorites();
+    set({ viewMode: "favorites", ...clearBrowseState, favoriteTracks: tracks });
+  },
+
+  viewRecentPlays: async () => {
+    const tracks = await commands.getRecentPlays();
+    set({ viewMode: "recentPlays", ...clearBrowseState, recentTracks: tracks });
   },
 }));

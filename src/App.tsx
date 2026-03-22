@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { TitleBar } from "./components/TitleBar/TitleBar";
@@ -12,7 +12,7 @@ import { NowPlaying } from "./components/NowPlaying/NowPlaying";
 import { usePlayerStore } from "./stores/playerStore";
 import { useLibraryStore } from "./stores/libraryStore";
 import { usePlaylistStore } from "./stores/playlistStore";
-import type { PlaybackState } from "./lib/commands";
+import { commands, type PlaybackState } from "./lib/commands";
 import styles from "./App.module.css";
 
 function App() {
@@ -40,9 +40,22 @@ function App() {
     };
   }, [updateFromBackend]);
 
-  // Update window title with current track
+  // Record play history when track changes
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const tracks = useLibraryStore((s) => s.tracks);
+  const prevTrackRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (currentTrack && currentTrack !== prevTrackRef.current) {
+      prevTrackRef.current = currentTrack;
+      const meta = tracks.find((t) => t.path === currentTrack);
+      if (meta) {
+        commands.recordPlay(meta.id);
+      }
+    }
+  }, [currentTrack, tracks]);
+
+  // Update window title with current track
 
   useEffect(() => {
     const meta = tracks.find((t) => t.path === currentTrack);

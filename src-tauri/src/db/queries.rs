@@ -20,6 +20,7 @@ pub struct Track {
     pub sample_rate: Option<i32>,
     pub bit_depth: Option<i32>,
     pub has_art: bool,
+    pub favorite: bool,
 }
 
 #[derive(Debug)]
@@ -94,6 +95,7 @@ fn row_to_track(row: &rusqlite::Row) -> rusqlite::Result<Track> {
         sample_rate: row.get(13)?,
         bit_depth: row.get(14)?,
         has_art: row.get::<_, i32>(15).map(|v| v != 0)?,
+        favorite: row.get::<_, i32>(16).map(|v| v != 0).unwrap_or(false),
     })
 }
 
@@ -102,7 +104,7 @@ pub fn get_all_tracks(conn: &Connection) -> Result<Vec<Track>, String> {
         .prepare(
             "SELECT id, path, title, artist, album, album_artist, genre,
                     track_number, disc_number, year, duration_ms, file_size,
-                    format, sample_rate, bit_depth, has_art
+                    format, sample_rate, bit_depth, has_art, COALESCE(favorite, 0) as favorite
              FROM tracks ORDER BY album_artist, album, disc_number, track_number, title",
         )
         .map_err(|e| e.to_string())?;
@@ -122,7 +124,7 @@ pub fn search_tracks(conn: &Connection, query: &str) -> Result<Vec<Track>, Strin
         .prepare(
             "SELECT id, path, title, artist, album, album_artist, genre,
                     track_number, disc_number, year, duration_ms, file_size,
-                    format, sample_rate, bit_depth, has_art
+                    format, sample_rate, bit_depth, has_art, COALESCE(favorite, 0) as favorite
              FROM tracks
              WHERE title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1 OR album_artist LIKE ?1
              ORDER BY artist, album, track_number, title",
@@ -288,7 +290,7 @@ pub fn get_artist_tracks(conn: &Connection, artist: &str) -> Result<Vec<Track>, 
         .prepare(
             "SELECT DISTINCT t.id, t.path, t.title, t.artist, t.album, t.album_artist, t.genre,
                     t.track_number, t.disc_number, t.year, t.duration_ms, t.file_size,
-                    t.format, t.sample_rate, t.bit_depth, t.has_art
+                    t.format, t.sample_rate, t.bit_depth, t.has_art, COALESCE(t.favorite, 0) as favorite
              FROM tracks t
              JOIN track_artists ta ON ta.track_id = t.id
              WHERE ta.artist_name = ?1
@@ -364,7 +366,7 @@ pub fn get_album_tracks(
         .prepare(
             "SELECT id, path, title, artist, album, album_artist, genre,
                     track_number, disc_number, year, duration_ms, file_size,
-                    format, sample_rate, bit_depth, has_art
+                    format, sample_rate, bit_depth, has_art, COALESCE(favorite, 0) as favorite
              FROM tracks
              WHERE album = ?1 AND COALESCE(album_artist, '') = COALESCE(?2, '')
              ORDER BY disc_number, track_number, title",
@@ -373,6 +375,83 @@ pub fn get_album_tracks(
 
     let tracks = stmt
         .query_map(params![album, album_artist], row_to_track)
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(tracks)
+}
+
+// ── Favorite queries ──
+
+pub fn toggle_favorite(conn: &Connection, track_id: i64) -> Result<bool, String> {
+    conn.execute(
+        "UPDATE tracks SET favorite = CASE WHEN favorite = 1 THEN 0 ELSE 1 END WHERE id = ?1",
+        params![track_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    let new_val: i32 = conn
+        .query_row("SELECT COALESCE(favorite, 0) FROM tracks WHERE id = ?1", params![track_id], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+
+    Ok(new_val != 0)
+}
+
+pub fn get_favorites(conn: &Connection) -> Result<Vec<Track>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, path, title, artist, album, album_artist, genre,
+                    track_number, disc_number, year, duration_ms, file_size,
+                    format, sample_rate, bit_depth, has_art, COALESCE(favorite, 0) as favorite
+             FROM tracks
+             WHERE favorite = 1
+             ORDER BY title COLLATE NOCASE",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let tracks = stmt
+        .query_map([], row_to_track)
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(tracks)
+}
+
+// ── Play history queries ──
+
+pub fn record_play(conn: &Connection, track_id: i64) -> Result<(), String> {
+    conn.execute(
+        "INSERT INTO play_history (track_id) VALUES (?1)",
+        params![track_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn get_recent_plays(conn: &Connection, limit: i64) -> Result<Vec<Track>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT t.id, t.path, t.title, t.artist, t.album, t.album_artist, t.genre,
+                    t.track_number, t.disc_number, t.year, t.duration_ms, t.file_size,
+                    t.format, t.sample_rate, t.bit_depth, t.has_art, COALESCE(t.favorite, 0) as favorite
+             FROM tracks t
+             WHERE t.id IN (
+                 SELECT track_id FROM (
+                     SELECT track_id, MAX(played_at) as last_played
+                     FROM play_history
+                     GROUP BY track_id
+                     ORDER BY last_played DESC
+                     LIMIT ?1
+                 )
+             )
+             ORDER BY (SELECT MAX(played_at) FROM play_history WHERE track_id = t.id) DESC",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let tracks = stmt
+        .query_map(params![limit], row_to_track)
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
         .collect();
@@ -566,7 +645,7 @@ pub fn get_playlist_tracks(conn: &Connection, playlist_id: i64) -> Result<Vec<Tr
         .prepare(
             "SELECT t.id, t.path, t.title, t.artist, t.album, t.album_artist, t.genre,
                     t.track_number, t.disc_number, t.year, t.duration_ms, t.file_size,
-                    t.format, t.sample_rate, t.bit_depth, t.has_art
+                    t.format, t.sample_rate, t.bit_depth, t.has_art, COALESCE(t.favorite, 0) as favorite
              FROM tracks t
              JOIN playlist_tracks pt ON pt.track_id = t.id
              WHERE pt.playlist_id = ?1

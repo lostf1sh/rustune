@@ -50,6 +50,14 @@ pub fn create_tables(conn: &Connection) -> Result<(), String> {
             PRIMARY KEY (track_id, artist_name)
         );
 
+        CREATE TABLE IF NOT EXISTS play_history (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            track_id  INTEGER REFERENCES tracks(id) ON DELETE CASCADE,
+            played_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_play_history_track ON play_history(track_id);
+        CREATE INDEX IF NOT EXISTS idx_play_history_time ON play_history(played_at DESC);
         CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
         CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album);
         CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title);
@@ -59,4 +67,15 @@ pub fn create_tables(conn: &Connection) -> Result<(), String> {
         ",
     )
     .map_err(|e| format!("Failed to create tables: {}", e))
+}
+
+pub fn run_migrations(conn: &Connection) -> Result<(), String> {
+    // Add favorite column if not exists
+    let has_favorite = conn.prepare("SELECT favorite FROM tracks LIMIT 0").is_ok();
+    if !has_favorite {
+        conn.execute_batch("ALTER TABLE tracks ADD COLUMN favorite INTEGER DEFAULT 0")
+            .map_err(|e| format!("Migration error: {}", e))?;
+        log::info!("Added favorite column to tracks table");
+    }
+    Ok(())
 }

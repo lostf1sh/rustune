@@ -72,6 +72,11 @@ pub fn remove_from_queue(index: usize, engine: State<'_, AudioEngine>) -> Result
 }
 
 #[tauri::command]
+pub fn insert_next_in_queue(path: String, engine: State<'_, AudioEngine>) -> Result<(), String> {
+    engine.send(AudioCommand::InsertNextInQueue(path))
+}
+
+#[tauri::command]
 pub fn clear_queue(engine: State<'_, AudioEngine>) -> Result<(), String> {
     engine.send(AudioCommand::ClearQueue)
 }
