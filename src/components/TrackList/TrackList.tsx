@@ -99,6 +99,32 @@ export function TrackList() {
     );
   };
 
+  if (displayTracks.length === 0 && searchQuery) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <div className={styles.searchWrap}>
+            <svg className={styles.searchIcon} width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2" />
+              <path d="M9.5 9.5L13 13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+            <input
+              type="text"
+              className={styles.searchInput}
+              placeholder="Search tracks..."
+              defaultValue={searchQuery}
+              onChange={handleSearch}
+            />
+          </div>
+        </div>
+        <div className={styles.empty}>
+          <p className={styles.emptyTitle}>No results</p>
+          <p className={styles.emptyHint}>No tracks match "{searchQuery}"</p>
+        </div>
+      </div>
+    );
+  }
+
   if (displayTracks.length === 0 && !searchQuery) {
     return (
       <div className={styles.container}>

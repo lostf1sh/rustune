@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { listen } from "@tauri-apps/api/event";
 import { useLibraryStore } from "../../stores/libraryStore";
 import { usePlaylistStore } from "../../stores/playlistStore";
 import styles from "./Sidebar.module.css";
 
 export function Sidebar() {
   const { trackCount, isScanning, scanFolder } = useLibraryStore();
+  const [scanProgress, setScanProgress] = useState(0);
   const {
     playlists,
     viewMode,
@@ -26,6 +28,19 @@ export function Sidebar() {
     }
   }, [isCreating]);
 
+  useEffect(() => {
+    const unlistenProgress = listen<number>("scan-progress", (e) => {
+      setScanProgress(e.payload);
+    });
+    const unlistenComplete = listen<number>("scan-complete", () => {
+      setScanProgress(0);
+    });
+    return () => {
+      unlistenProgress.then((fn) => fn());
+      unlistenComplete.then((fn) => fn());
+    };
+  }, []);
+
   const handleAddFolder = async () => {
     const selected = await open({
       directory: true,
@@ -33,6 +48,7 @@ export function Sidebar() {
       title: "Select Music Folder",
     });
     if (selected) {
+      setScanProgress(0);
       await scanFolder(selected);
     }
   };
@@ -148,7 +164,7 @@ export function Sidebar() {
           {isScanning ? (
             <>
               <span className={styles.spinner} />
-              Scanning...
+              {scanProgress > 0 ? `${scanProgress} found...` : "Scanning..."}
             </>
           ) : (
             <>
