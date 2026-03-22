@@ -327,7 +327,6 @@
 .lyricsScroll {
   flex: 1;
   overflow-y: auto;
-  scroll-behavior: smooth;
   -ms-overflow-style: none;
   scrollbar-width: none;
 }

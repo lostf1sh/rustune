@@ -81,14 +81,54 @@ export function NowPlaying() {
     return idx;
   }, [lyrics?.synced, positionSecs]);
 
-  // Auto-scroll lyrics
+  // Smooth scroll with requestAnimationFrame
+  const scrollAnimRef = useRef<number>(0);
+
   useEffect(() => {
-    if (activeLineRef.current && lyricsRef.current) {
-      activeLineRef.current.scrollIntoView({
-        block: "center",
-        behavior: "smooth",
-      });
-    }
+    const container = lyricsRef.current;
+    const activeLine = activeLineRef.current;
+    if (!container || !activeLine) return;
+
+    // Target: center the active line in the container
+    const containerRect = container.getBoundingClientRect();
+    const lineRect = activeLine.getBoundingClientRect();
+    const targetScroll =
+      container.scrollTop +
+      (lineRect.top - containerRect.top) -
+      containerRect.height / 2 +
+      lineRect.height / 2;
+
+    const startScroll = container.scrollTop;
+    const distance = targetScroll - startScroll;
+
+    if (Math.abs(distance) < 2) return;
+
+    const duration = 400;
+    let startTime: number | null = null;
+
+    // Cancel any in-flight animation
+    if (scrollAnimRef.current) cancelAnimationFrame(scrollAnimRef.current);
+
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeOutCubic(progress);
+
+      container.scrollTop = startScroll + distance * eased;
+
+      if (progress < 1) {
+        scrollAnimRef.current = requestAnimationFrame(step);
+      }
+    };
+
+    scrollAnimRef.current = requestAnimationFrame(step);
+
+    return () => {
+      if (scrollAnimRef.current) cancelAnimationFrame(scrollAnimRef.current);
+    };
   }, [currentLineIndex]);
 
   const handleSeek = useCallback(
