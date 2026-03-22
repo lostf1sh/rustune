@@ -2,6 +2,7 @@ mod audio;
 mod commands;
 mod db;
 mod library;
+mod lyrics;
 mod tags;
 
 use audio::engine::AudioEngine;
@@ -61,6 +62,7 @@ pub fn run() {
             commands::playlist::remove_track_from_playlist,
             commands::playlist::get_playlist_tracks,
             commands::tags::get_album_art,
+            commands::lyrics::fetch_lyrics,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

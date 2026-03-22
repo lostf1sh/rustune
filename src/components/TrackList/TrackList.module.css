@@ -119,8 +119,9 @@
 
 /* Rows */
 .row {
-  transition: background 0.08s;
+  transition: background 0.15s var(--ease-out);
   cursor: default;
+  animation: fadeInUp 0.3s var(--ease-out) both;
 }
 
 .row:hover {
@@ -138,6 +139,7 @@
 
 .row.playing {
   background: var(--now-playing-dim);
+  animation: pulseGlow 3s ease-in-out infinite;
 }
 
 .row.playing:hover {
@@ -295,6 +297,13 @@
   padding: 4px 0;
   min-width: 160px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: contextIn 0.15s var(--ease-out);
+  transform-origin: top left;
+}
+
+@keyframes contextIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .contextLabel {

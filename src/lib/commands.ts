@@ -33,6 +33,16 @@ export interface Track {
   hasArt: boolean;
 }
 
+export interface LyricsLine {
+  timeMs: number;
+  text: string;
+}
+
+export interface LyricsResult {
+  synced: LyricsLine[] | null;
+  plain: string | null;
+}
+
 export interface AlbumArt {
   data: string;
   mimeType: string;
@@ -83,4 +93,7 @@ export const commands = {
 
   getAlbumArt: (path: string) =>
     invoke<AlbumArt | null>("get_album_art", { path }),
+
+  fetchLyrics: (title: string, artist: string, album: string, durationSecs: number) =>
+    invoke<LyricsResult>("fetch_lyrics", { title, artist, album, durationSecs }),
 };
