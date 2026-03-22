@@ -3577,6 +3577,7 @@ dependencies = [
 name = "rustune"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "cpal",
  "lofty",
  "log",

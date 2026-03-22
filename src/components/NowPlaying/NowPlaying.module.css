@@ -1,0 +1,394 @@
+.screen {
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(
+    ellipse at 50% 38%,
+    rgba(30, 28, 24, 0.5) 0%,
+    var(--bg) 65%
+  );
+  position: relative;
+  animation: screenIn 0.35s ease;
+  user-select: none;
+}
+
+@keyframes screenIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Collapse */
+.collapseBtn {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 10;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-family: inherit;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+
+.collapseBtn:hover {
+  color: var(--text-secondary);
+  background: var(--surface-3);
+  border-color: var(--surface-3);
+}
+
+/* Layout — centers the player column; lyrics column goes beside it later */
+.layout {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 60px;
+  padding: 40px;
+  min-height: 0;
+}
+
+/* Player column */
+.playerColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 340px;
+  flex-shrink: 0;
+}
+
+/* Art */
+.artFrame {
+  width: 300px;
+  height: 300px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.artGlow {
+  position: absolute;
+  inset: 8px;
+  border-radius: 12px;
+  transition: box-shadow 0.5s ease;
+}
+
+.artGlowActive {
+  box-shadow:
+    0 24px 80px -12px rgba(200, 155, 60, 0.1),
+    0 8px 24px -8px rgba(0, 0, 0, 0.6);
+}
+
+.art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.artVisible {
+  opacity: 1;
+}
+
+.artPlaceholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  background: var(--surface-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+/* Info */
+.info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-align: center;
+  width: 100%;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.4px;
+  line-height: 1.25;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artist {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.album {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Seek */
+.seekSection {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.seekSlider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--now-playing) 0%,
+    var(--now-playing) var(--progress, 0%),
+    var(--surface-3) var(--progress, 0%),
+    var(--surface-3) 100%
+  );
+  outline: none;
+  cursor: pointer;
+  transition: height 0.1s;
+}
+
+.seekSlider:hover {
+  height: 6px;
+}
+
+.seekSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.seekSlider:hover::-webkit-slider-thumb {
+  opacity: 1;
+}
+
+.seekSlider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.seekSlider:hover::-moz-range-thumb {
+  opacity: 1;
+}
+
+.seekTimes {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Transport */
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.transportBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.12s;
+}
+
+.transportBtn:hover {
+  color: var(--text-primary);
+}
+
+.playBtn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.playBtn:hover {
+  background: var(--accent-hover);
+}
+
+.playBtn:active {
+  transform: scale(0.95);
+}
+
+/* Mode buttons (shuffle/repeat) */
+.modeBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: color 0.15s;
+}
+
+.modeBtn:hover {
+  color: var(--text-secondary);
+}
+
+.modeBtnActive {
+  color: var(--now-playing);
+}
+
+.modeBtnActive:hover {
+  color: var(--now-playing);
+  filter: brightness(1.15);
+}
+
+.ledDot {
+  position: absolute;
+  bottom: 0px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--now-playing);
+  box-shadow: 0 0 5px var(--now-playing);
+}
+
+.repeatBadge {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  font-size: 7px;
+  font-weight: 700;
+  color: var(--now-playing);
+  line-height: 1;
+}
+
+/* Volume */
+.volumeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 160px;
+}
+
+.volIcon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.volumeSlider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 3px;
+  border-radius: 1.5px;
+  background: linear-gradient(
+    to right,
+    var(--text-muted) 0%,
+    var(--text-muted) var(--progress, 0%),
+    var(--surface-3) var(--progress, 0%),
+    var(--surface-3) 100%
+  );
+  outline: none;
+  cursor: pointer;
+  transition: height 0.1s;
+}
+
+.volumeSlider:hover {
+  height: 5px;
+}
+
+.volumeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.volumeSlider:hover::-webkit-slider-thumb {
+  opacity: 1;
+}
+
+.volumeSlider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.volumeSlider:hover::-moz-range-thumb {
+  opacity: 1;
+}
+
+/* Tech info */
+.techInfo {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  opacity: 0.5;
+  margin: 0;
+}

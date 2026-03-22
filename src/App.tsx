@@ -4,6 +4,7 @@ import { PlayerBar } from "./components/PlayerBar/PlayerBar";
 import { QueuePanel } from "./components/QueuePanel/QueuePanel";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { TrackList } from "./components/TrackList/TrackList";
+import { NowPlaying } from "./components/NowPlaying/NowPlaying";
 import { usePlayerStore } from "./stores/playerStore";
 import { useLibraryStore } from "./stores/libraryStore";
 import { usePlaylistStore } from "./stores/playlistStore";
@@ -12,6 +13,7 @@ import styles from "./App.module.css";
 
 function App() {
   const updateFromBackend = usePlayerStore((s) => s.updateFromBackend);
+  const nowPlayingOpen = usePlayerStore((s) => s.nowPlayingOpen);
   const loadTracks = useLibraryStore((s) => s.loadTracks);
   const loadPlaylists = usePlaylistStore((s) => s.loadPlaylists);
 
@@ -32,11 +34,17 @@ function App() {
 
   return (
     <div className={styles.app}>
-      <div className={styles.body}>
-        <Sidebar />
-        <TrackList />
-      </div>
-      <PlayerBar />
+      {nowPlayingOpen ? (
+        <NowPlaying />
+      ) : (
+        <>
+          <div className={styles.body}>
+            <Sidebar />
+            <TrackList />
+          </div>
+          <PlayerBar />
+        </>
+      )}
       <QueuePanel />
     </div>
   );

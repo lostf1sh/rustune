@@ -2,6 +2,7 @@ mod audio;
 mod commands;
 mod db;
 mod library;
+mod tags;
 
 use audio::engine::AudioEngine;
 use std::sync::Mutex;
@@ -59,6 +60,7 @@ pub fn run() {
             commands::playlist::add_tracks_to_playlist,
             commands::playlist::remove_track_from_playlist,
             commands::playlist::get_playlist_tracks,
+            commands::tags::get_album_art,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

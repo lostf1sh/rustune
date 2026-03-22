@@ -28,6 +28,8 @@ interface PlayerStore {
   clearQueue: () => Promise<void>;
   queueOpen: boolean;
   toggleQueue: () => void;
+  nowPlayingOpen: boolean;
+  toggleNowPlaying: () => void;
 }
 
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
@@ -114,4 +116,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   queueOpen: false,
   toggleQueue: () => set((s) => ({ queueOpen: !s.queueOpen })),
+
+  nowPlayingOpen: false,
+  toggleNowPlaying: () => set((s) => ({ nowPlayingOpen: !s.nowPlayingOpen })),
 }));

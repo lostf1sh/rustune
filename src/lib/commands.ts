@@ -33,6 +33,11 @@ export interface Track {
   hasArt: boolean;
 }
 
+export interface AlbumArt {
+  data: string;
+  mimeType: string;
+}
+
 export interface Playlist {
   id: number;
   name: string;
@@ -75,4 +80,7 @@ export const commands = {
     invoke("remove_track_from_playlist", { playlistId, trackId }),
   getPlaylistTracks: (playlistId: number) =>
     invoke<Track[]>("get_playlist_tracks", { playlistId }),
+
+  getAlbumArt: (path: string) =>
+    invoke<AlbumArt | null>("get_album_art", { path }),
 };

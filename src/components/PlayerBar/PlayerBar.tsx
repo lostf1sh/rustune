@@ -1,5 +1,7 @@
+import { useEffect, useRef, useState } from "react";
 import { usePlayerStore } from "../../stores/playerStore";
 import { useLibraryStore } from "../../stores/libraryStore";
+import { commands, type AlbumArt } from "../../lib/commands";
 import styles from "./PlayerBar.module.css";
 
 function formatTime(secs: number): string {
@@ -27,6 +29,7 @@ export function PlayerBar() {
     toggleShuffle,
     cycleRepeat,
     toggleQueue,
+    toggleNowPlaying,
   } = usePlayerStore();
 
   const tracks = useLibraryStore((s) => s.tracks);
@@ -34,6 +37,27 @@ export function PlayerBar() {
 
   const displayTitle = trackMeta?.title ?? extractFileName(currentTrack);
   const displayArtist = trackMeta?.artist ?? null;
+
+  const [albumArt, setAlbumArt] = useState<AlbumArt | null>(null);
+  const [artLoaded, setArtLoaded] = useState(false);
+  const lastTrackRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (currentTrack === lastTrackRef.current) return;
+    lastTrackRef.current = currentTrack;
+    setArtLoaded(false);
+
+    if (!currentTrack) {
+      setAlbumArt(null);
+      return;
+    }
+
+    commands.getAlbumArt(currentTrack).then((art) => {
+      if (lastTrackRef.current === currentTrack) {
+        setAlbumArt(art);
+      }
+    });
+  }, [currentTrack]);
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     seek(parseFloat(e.target.value));
@@ -47,17 +71,46 @@ export function PlayerBar() {
 
   return (
     <div className={styles.playerBar}>
-      <div className={styles.trackInfo}>
-        {currentTrack ? (
-          <>
-            <span className={styles.trackTitle}>{displayTitle}</span>
-            {displayArtist && (
-              <span className={styles.trackArtist}>{displayArtist}</span>
-            )}
-          </>
-        ) : (
-          <span className={styles.noTrack}>Not playing</span>
-        )}
+      <div className={styles.leftSection}>
+        <div
+          className={`${styles.artWrap} ${currentTrack ? styles.artClickable : ""}`}
+          onClick={currentTrack ? toggleNowPlaying : undefined}
+          title={currentTrack ? "Now Playing" : undefined}
+        >
+          {albumArt ? (
+            <img
+              className={`${styles.art} ${artLoaded ? styles.artVisible : ""}`}
+              src={`data:${albumArt.mimeType};base64,${albumArt.data}`}
+              alt=""
+              onLoad={() => setArtLoaded(true)}
+            />
+          ) : (
+            <div className={styles.artPlaceholder}>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path
+                  d="M13 3v10a2.5 2.5 0 11-2.5-2.5H13V5.5L7 7v7a2.5 2.5 0 11-2.5-2.5H7V4l10-2.5v1z"
+                  stroke="var(--text-muted)"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity="0.4"
+                />
+              </svg>
+            </div>
+          )}
+        </div>
+        <div className={styles.trackInfo}>
+          {currentTrack ? (
+            <>
+              <span className={styles.trackTitle}>{displayTitle}</span>
+              {displayArtist && (
+                <span className={styles.trackArtist}>{displayArtist}</span>
+              )}
+            </>
+          ) : (
+            <span className={styles.noTrack}>Not playing</span>
+          )}
+        </div>
       </div>
 
       <div className={styles.center}>
