@@ -161,20 +161,31 @@ export function NowPlaying() {
   const meta = tracks.find((t) => t.path === currentTrack);
 
   const [art, setArt] = useState<AlbumArt | null>(null);
-  const [artLoaded, setArtLoaded] = useState(false);
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null);
   const lastPathRef = useRef<string | null>(null);
+  const [artPath, setArtPath] = useState<string | null>(null);
+  const [lyricsPath, setLyricsPath] = useState<string | null>(null);
+  const [loadedArtPath, setLoadedArtPath] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentTrack === lastPathRef.current) return;
     lastPathRef.current = currentTrack;
-    setArtLoaded(false);
-    setArt(null);
-    setLyrics(null);
-    if (!currentTrack) return;
+    Promise.resolve().then(() => {
+      setLoadedArtPath(null);
+      setArtPath(null);
+      setLyricsPath(null);
+      setArt(null);
+      setLyrics(null);
+    });
+    if (!currentTrack) {
+      return;
+    }
 
     commands.getAlbumArt(currentTrack).then((result) => {
-      if (lastPathRef.current === currentTrack) setArt(result);
+      if (lastPathRef.current === currentTrack) {
+        setArt(result);
+        setArtPath(currentTrack);
+      }
     });
 
     const trackMeta = tracks.find((t) => t.path === currentTrack);
@@ -183,7 +194,10 @@ export function NowPlaying() {
       commands
         .fetchLyrics(trackMeta.title, trackMeta.artist, trackMeta.album ?? "", dur)
         .then((result) => {
-          if (lastPathRef.current === currentTrack) setLyrics(result);
+          if (lastPathRef.current === currentTrack) {
+            setLyrics(result);
+            setLyricsPath(currentTrack);
+          }
         })
         .catch(() => {});
     }
@@ -212,7 +226,10 @@ export function NowPlaying() {
   const techInfo = [format, sampleRate, bitDepth].filter(Boolean).join(" · ");
   const progress = durationSecs > 0 ? (positionSecs / durationSecs) * 100 : 0;
 
-  const hasLyrics = !!(lyrics?.synced || lyrics?.plain);
+  const visibleArt = artPath === currentTrack ? art : null;
+  const visibleLyrics = lyricsPath === currentTrack ? lyrics : null;
+  const hasLyrics = !!(visibleLyrics?.synced || visibleLyrics?.plain);
+  const artLoaded = loadedArtPath === currentTrack;
 
   return (
     <div className={styles.screen}>
@@ -225,12 +242,13 @@ export function NowPlaying() {
       <div className={styles.layout}>
         <div className={`${styles.playerColumn} ${hasLyrics ? styles.playerColumnWithLyrics : ""}`}>
           <div className={`${styles.artFrame} ${hasLyrics ? styles.artFrameSmall : ""}`}>
-            {art ? (
+            {visibleArt ? (
               <img
                 className={`${styles.art} ${artLoaded ? styles.artVisible : ""}`}
-                src={`data:${art.mimeType};base64,${art.data}`}
+                key={currentTrack ?? "empty"}
+                src={`data:${visibleArt.mimeType};base64,${visibleArt.data}`}
                 alt=""
-                onLoad={() => setArtLoaded(true)}
+                onLoad={() => setLoadedArtPath(currentTrack)}
                 draggable={false}
               />
             ) : (
@@ -313,8 +331,8 @@ export function NowPlaying() {
           {techInfo && <p className={styles.techInfo}>{techInfo}</p>}
         </div>
 
-        {lyrics && hasLyrics && (
-          <LyricsPanel lyrics={lyrics} onSeek={handleLyricSeek} />
+        {visibleLyrics && hasLyrics && (
+          <LyricsPanel lyrics={visibleLyrics} onSeek={handleLyricSeek} />
         )}
       </div>
     </div>

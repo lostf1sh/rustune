@@ -50,7 +50,10 @@ pub async fn fetch_lyrics(
         });
     }
 
-    let data: LrcLibResponse = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+    let data: LrcLibResponse = resp
+        .json()
+        .await
+        .map_err(|e| format!("Parse error: {}", e))?;
 
     let synced = data.synced_lyrics.as_deref().map(parse_lrc);
     let plain = data.plain_lyrics;

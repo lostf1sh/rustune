@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { commands, type Track } from "../lib/commands";
+import { commands, type LibraryRoot, type Track } from "../lib/commands";
 
 type SortField = "title" | "artist" | "album" | "duration" | "trackNumber";
 type SortDir = "asc" | "desc";
@@ -12,9 +12,12 @@ interface LibraryStore {
   sortDir: SortDir;
   isScanning: boolean;
   trackCount: number;
+  roots: LibraryRoot[];
 
   loadTracks: () => Promise<void>;
+  loadRoots: () => Promise<void>;
   scanFolder: (folder: string) => Promise<number>;
+  removeRoot: (path: string) => Promise<void>;
   setSearchQuery: (query: string) => void;
   setSort: (field: SortField) => void;
 }
@@ -72,6 +75,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   sortDir: "asc",
   isScanning: false,
   trackCount: 0,
+  roots: [],
 
   loadTracks: async () => {
     const tracks = await commands.getTracks();
@@ -81,15 +85,27 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
     set({ tracks, filteredTracks: sorted, trackCount: tracks.length });
   },
 
+  loadRoots: async () => {
+    const roots = await commands.getLibraryRoots();
+    set({ roots });
+  },
+
   scanFolder: async (folder: string) => {
     set({ isScanning: true });
     try {
       const count = await commands.scanFolder(folder);
+      await get().loadRoots();
       await get().loadTracks();
       return count;
     } finally {
       set({ isScanning: false });
     }
+  },
+
+  removeRoot: async (path: string) => {
+    await commands.removeLibraryRoot(path);
+    await get().loadRoots();
+    await get().loadTracks();
   },
 
   setSearchQuery: (query: string) => {

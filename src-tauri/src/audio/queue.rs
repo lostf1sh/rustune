@@ -127,8 +127,8 @@ impl QueueState {
             if !self.original_tracks.is_empty() {
                 let current_path = current_track.as_deref();
                 self.tracks = self.original_tracks.clone();
-                self.current_index = current_path
-                    .and_then(|p| self.tracks.iter().position(|t| t == p));
+                self.current_index =
+                    current_path.and_then(|p| self.tracks.iter().position(|t| t == p));
             }
         }
     }

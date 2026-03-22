@@ -1,73 +1,77 @@
-# React + TypeScript + Vite
+# Rustune
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Rustune is a local desktop music player built with Tauri, Rust, React, and TypeScript.
 
-Currently, two official plugins are available:
+## Current Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Local library scanning for common formats including MP3, FLAC, WAV, OGG, M4A, AAC, OPUS, WMA, APE, WV, AIFF, and ALAC
+- Persistent library folders
+- Playback queue with shuffle and repeat modes
+- Playlist creation and track management
+- Album art extraction
+- Basic tag editing
+- Lyrics lookup via LRCLIB
+- Full-screen now playing view
 
-## React Compiler
+## Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Frontend: React 19, TypeScript, Vite, Zustand
+- Desktop shell: Tauri 2
+- Backend: Rust, rusqlite, lofty, symphonia, cpal
 
-## Expanding the ESLint configuration
+## Development
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Requirements:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Node.js 20+
+- Rust toolchain
+- Tauri system dependencies for your platform
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Install dependencies:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Run the frontend in development:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+Run the desktop app:
+
+```bash
+npx tauri dev
+```
+
+Create a production frontend build:
+
+```bash
+npm run build
+```
+
+Run lint checks:
+
+```bash
+npm run lint
+```
+
+Run Rust compile checks:
+
+```bash
+cd src-tauri
+cargo check
+```
+
+## Library Behavior
+
+- Added folders are stored in the app database.
+- Re-scanning a folder updates metadata for existing files and removes tracks that no longer exist under that folder.
+- Removing a folder from the sidebar removes that folder from the saved library roots and deletes its tracks from the library.
+
+## Known Gaps
+
+- There is no automated test suite yet.
+- Playlist reordering is not implemented.
+- Duplicate entries for the same track in a playlist are not supported yet.

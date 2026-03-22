@@ -8,7 +8,11 @@ pub fn play_file(path: String, engine: State<'_, AudioEngine>) -> Result<(), Str
 }
 
 #[tauri::command]
-pub fn play_queue(tracks: Vec<String>, index: usize, engine: State<'_, AudioEngine>) -> Result<(), String> {
+pub fn play_queue(
+    tracks: Vec<String>,
+    index: usize,
+    engine: State<'_, AudioEngine>,
+) -> Result<(), String> {
     engine.send(AudioCommand::PlayQueue(tracks, index))
 }
 

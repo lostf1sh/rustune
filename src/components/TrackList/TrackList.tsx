@@ -24,6 +24,17 @@ function EqIndicator() {
   );
 }
 
+function SortIcon({
+  active,
+  dir,
+}: {
+  active: boolean;
+  dir: "asc" | "desc";
+}) {
+  if (!active) return null;
+  return <span className={styles.sortIcon}>{dir === "asc" ? "↑" : "↓"}</span>;
+}
+
 interface ContextMenuState {
   x: number;
   y: number;
@@ -88,15 +99,6 @@ export function TrackList() {
       await addTracksToPlaylist(playlistId, [contextMenu.trackId]);
       setContextMenu(null);
     }
-  };
-
-  const SortIcon = ({ field }: { field: string }) => {
-    if (sortField !== field) return null;
-    return (
-      <span className={styles.sortIcon}>
-        {sortDir === "asc" ? "↑" : "↓"}
-      </span>
-    );
   };
 
   if (displayTracks.length === 0 && searchQuery) {
@@ -192,20 +194,20 @@ export function TrackList() {
             <tr>
               <th className={styles.thNum}>#</th>
               <th className={styles.thTitle} onClick={() => !isPlaylistView && setSort("title")}>
-                TITLE {!isPlaylistView && <SortIcon field="title" />}
+                TITLE {!isPlaylistView && <SortIcon active={sortField === "title"} dir={sortDir} />}
               </th>
               <th className={styles.thArtist} onClick={() => !isPlaylistView && setSort("artist")}>
-                ARTIST {!isPlaylistView && <SortIcon field="artist" />}
+                ARTIST {!isPlaylistView && <SortIcon active={sortField === "artist"} dir={sortDir} />}
               </th>
               <th className={styles.thAlbum} onClick={() => !isPlaylistView && setSort("album")}>
-                ALBUM {!isPlaylistView && <SortIcon field="album" />}
+                ALBUM {!isPlaylistView && <SortIcon active={sortField === "album"} dir={sortDir} />}
               </th>
               <th className={styles.thDuration} onClick={() => !isPlaylistView && setSort("duration")}>
                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                   <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.1" />
                   <path d="M6.5 3.5v3.5l2.5 1.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
                 </svg>
-                {!isPlaylistView && <SortIcon field="duration" />}
+                {!isPlaylistView && <SortIcon active={sortField === "duration"} dir={sortDir} />}
               </th>
               {isPlaylistView && <th className={styles.thAction} />}
             </tr>

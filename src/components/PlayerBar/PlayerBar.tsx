@@ -39,22 +39,28 @@ export function PlayerBar() {
   const displayArtist = trackMeta?.artist ?? null;
 
   const [albumArt, setAlbumArt] = useState<AlbumArt | null>(null);
-  const [artLoaded, setArtLoaded] = useState(false);
   const lastTrackRef = useRef<string | null>(null);
+  const [albumArtPath, setAlbumArtPath] = useState<string | null>(null);
+  const [loadedArtPath, setLoadedArtPath] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentTrack === lastTrackRef.current) return;
     lastTrackRef.current = currentTrack;
-    setArtLoaded(false);
 
     if (!currentTrack) {
-      setAlbumArt(null);
+      Promise.resolve().then(() => {
+        setAlbumArt(null);
+        setAlbumArtPath(null);
+        setLoadedArtPath(null);
+      });
       return;
     }
 
     commands.getAlbumArt(currentTrack).then((art) => {
       if (lastTrackRef.current === currentTrack) {
         setAlbumArt(art);
+        setAlbumArtPath(currentTrack);
+        setLoadedArtPath(null);
       }
     });
   }, [currentTrack]);
@@ -68,6 +74,8 @@ export function PlayerBar() {
   };
 
   const progress = durationSecs > 0 ? (positionSecs / durationSecs) * 100 : 0;
+  const visibleAlbumArt = albumArtPath === currentTrack ? albumArt : null;
+  const artLoaded = loadedArtPath === currentTrack;
 
   return (
     <div className={styles.playerBar}>
@@ -77,12 +85,13 @@ export function PlayerBar() {
           onClick={currentTrack ? toggleNowPlaying : undefined}
           title={currentTrack ? "Now Playing" : undefined}
         >
-          {albumArt ? (
+          {visibleAlbumArt ? (
             <img
               className={`${styles.art} ${artLoaded ? styles.artVisible : ""}`}
-              src={`data:${albumArt.mimeType};base64,${albumArt.data}`}
+              key={currentTrack ?? "empty"}
+              src={`data:${visibleAlbumArt.mimeType};base64,${visibleAlbumArt.data}`}
               alt=""
-              onLoad={() => setArtLoaded(true)}
+              onLoad={() => setLoadedArtPath(currentTrack)}
             />
           ) : (
             <div className={styles.artPlaceholder}>

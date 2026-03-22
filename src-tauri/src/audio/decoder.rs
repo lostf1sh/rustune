@@ -24,12 +24,20 @@ impl Decoder {
         let mss = MediaSourceStream::new(Box::new(file), Default::default());
 
         let mut hint = Hint::new();
-        if let Some(ext) = std::path::Path::new(path).extension().and_then(|e| e.to_str()) {
+        if let Some(ext) = std::path::Path::new(path)
+            .extension()
+            .and_then(|e| e.to_str())
+        {
             hint.with_extension(ext);
         }
 
         let probed = symphonia::default::get_probe()
-            .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+            .format(
+                &hint,
+                mss,
+                &FormatOptions::default(),
+                &MetadataOptions::default(),
+            )
             .map_err(|e| format!("Unsupported format: {}", e))?;
 
         let format = probed.format;
@@ -44,10 +52,7 @@ impl Decoder {
         let codec_params = &track.codec_params;
 
         let sample_rate = codec_params.sample_rate.unwrap_or(44100);
-        let channels = codec_params
-            .channels
-            .map(|c| c.count())
-            .unwrap_or(2);
+        let channels = codec_params.channels.map(|c| c.count()).unwrap_or(2);
 
         let duration_secs = codec_params
             .n_frames
@@ -78,7 +83,11 @@ impl Decoder {
     }
 
     pub fn signal_spec(&self) -> symphonia::core::audio::SignalSpec {
-        symphonia::core::audio::SignalSpec::new(self.sample_rate, symphonia::core::audio::Channels::FRONT_LEFT | symphonia::core::audio::Channels::FRONT_RIGHT)
+        symphonia::core::audio::SignalSpec::new(
+            self.sample_rate,
+            symphonia::core::audio::Channels::FRONT_LEFT
+                | symphonia::core::audio::Channels::FRONT_RIGHT,
+        )
     }
 
     pub fn seek(&mut self, position_secs: f64) {
@@ -121,7 +130,6 @@ impl Decoder {
             }
         }
     }
-
 }
 
 fn audio_buf_to_f32(buf: &AudioBufferRef, channels: usize) -> Vec<f32> {
