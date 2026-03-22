@@ -12,7 +12,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 20px 18px 24px;
+  padding: 14px 18px 20px;
 }
 
 .logo {
@@ -111,6 +111,56 @@
 .navItem.active {
   color: var(--text-primary);
   background: var(--surface-2);
+}
+
+.rootItem {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 8px 4px 12px;
+  border-radius: 5px;
+  position: relative;
+}
+
+.rootItem:hover {
+  background: var(--surface-2);
+}
+
+.rootItem:hover .rootDeleteBtn {
+  opacity: 1;
+}
+
+.rootIcon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.rootName {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rootDeleteBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.1s, color 0.1s;
+}
+
+.rootDeleteBtn:hover {
+  color: var(--text-secondary);
 }
 
 /* Playlist items */

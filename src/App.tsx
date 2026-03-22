@@ -1,10 +1,13 @@
 import { useCallback, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { TitleBar } from "./components/TitleBar/TitleBar";
 import { PlayerBar } from "./components/PlayerBar/PlayerBar";
 import { QueuePanel } from "./components/QueuePanel/QueuePanel";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { TrackList } from "./components/TrackList/TrackList";
+import { ArtistView } from "./components/ArtistView/ArtistView";
+import { AlbumView } from "./components/AlbumView/AlbumView";
 import { NowPlaying } from "./components/NowPlaying/NowPlaying";
 import { usePlayerStore } from "./stores/playerStore";
 import { useLibraryStore } from "./stores/libraryStore";
@@ -16,12 +19,15 @@ function App() {
   const updateFromBackend = usePlayerStore((s) => s.updateFromBackend);
   const nowPlayingOpen = usePlayerStore((s) => s.nowPlayingOpen);
   const loadTracks = useLibraryStore((s) => s.loadTracks);
+  const loadRoots = useLibraryStore((s) => s.loadRoots);
   const loadPlaylists = usePlaylistStore((s) => s.loadPlaylists);
+  const viewMode = usePlaylistStore((s) => s.viewMode);
 
   useEffect(() => {
     loadTracks();
+    loadRoots();
     loadPlaylists();
-  }, [loadTracks, loadPlaylists]);
+  }, [loadTracks, loadRoots, loadPlaylists]);
 
   // Playback state listener + window title update
   useEffect(() => {
@@ -121,13 +127,16 @@ function App() {
 
   return (
     <div className={styles.app}>
+      <TitleBar />
       {nowPlayingOpen ? (
         <NowPlaying />
       ) : (
         <>
           <div className={styles.body}>
             <Sidebar />
-            <TrackList />
+            {viewMode === "artists" ? <ArtistView /> :
+             viewMode === "albums" ? <AlbumView /> :
+             <TrackList />}
           </div>
           <PlayerBar />
         </>

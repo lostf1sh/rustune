@@ -1,13 +1,21 @@
 import { create } from "zustand";
 import { commands, type Playlist, type Track } from "../lib/commands";
 
-export type ViewMode = "library" | "playlist";
+export type ViewMode = "library" | "playlist" | "artists" | "albums";
 
 interface PlaylistStore {
   playlists: Playlist[];
   activePlaylistId: number | null;
   activePlaylistTracks: Track[];
   viewMode: ViewMode;
+
+  // Artist view
+  selectedArtist: string | null;
+  selectedArtistTracks: Track[];
+
+  // Album view
+  selectedAlbum: { album: string; albumArtist: string | null } | null;
+  selectedAlbumTracks: Track[];
 
   loadPlaylists: () => Promise<void>;
   createPlaylist: (name: string) => Promise<Playlist>;
@@ -17,13 +25,31 @@ interface PlaylistStore {
   removeTrackFromPlaylist: (playlistId: number, trackId: number) => Promise<void>;
   viewPlaylist: (id: number) => Promise<void>;
   viewLibrary: () => void;
+  viewArtists: () => void;
+  selectArtist: (name: string) => Promise<void>;
+  viewAlbums: () => void;
+  selectAlbum: (album: string, albumArtist: string | null) => Promise<void>;
+  clearAlbumSelection: () => void;
 }
+
+const clearBrowseState = {
+  activePlaylistId: null,
+  activePlaylistTracks: [] as Track[],
+  selectedArtist: null,
+  selectedArtistTracks: [] as Track[],
+  selectedAlbum: null,
+  selectedAlbumTracks: [] as Track[],
+};
 
 export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   playlists: [],
   activePlaylistId: null,
   activePlaylistTracks: [],
   viewMode: "library",
+  selectedArtist: null,
+  selectedArtistTracks: [],
+  selectedAlbum: null,
+  selectedAlbumTracks: [],
 
   loadPlaylists: async () => {
     const playlists = await commands.getPlaylists();
@@ -44,7 +70,7 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   deletePlaylist: async (id: number) => {
     await commands.deletePlaylist(id);
     if (get().activePlaylistId === id) {
-      set({ viewMode: "library", activePlaylistId: null, activePlaylistTracks: [] });
+      set({ viewMode: "library", ...clearBrowseState });
     }
     await get().loadPlaylists();
   },
@@ -69,10 +95,32 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
 
   viewPlaylist: async (id: number) => {
     const tracks = await commands.getPlaylistTracks(id);
-    set({ viewMode: "playlist", activePlaylistId: id, activePlaylistTracks: tracks });
+    set({ viewMode: "playlist", ...clearBrowseState, activePlaylistId: id, activePlaylistTracks: tracks });
   },
 
   viewLibrary: () => {
-    set({ viewMode: "library", activePlaylistId: null, activePlaylistTracks: [] });
+    set({ viewMode: "library", ...clearBrowseState });
+  },
+
+  viewArtists: () => {
+    set({ viewMode: "artists", ...clearBrowseState });
+  },
+
+  selectArtist: async (name: string) => {
+    const tracks = await commands.getArtistTracks(name);
+    set({ selectedArtist: name, selectedArtistTracks: tracks });
+  },
+
+  viewAlbums: () => {
+    set({ viewMode: "albums", ...clearBrowseState });
+  },
+
+  selectAlbum: async (album: string, albumArtist: string | null) => {
+    const tracks = await commands.getAlbumTracks(album, albumArtist);
+    set({ selectedAlbum: { album, albumArtist }, selectedAlbumTracks: tracks });
+  },
+
+  clearAlbumSelection: () => {
+    set({ selectedAlbum: null, selectedAlbumTracks: [] });
   },
 }));

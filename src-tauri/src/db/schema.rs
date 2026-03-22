@@ -31,6 +31,12 @@ pub fn create_tables(conn: &Connection) -> Result<(), String> {
             updated_at TEXT DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS library_roots (
+            path            TEXT PRIMARY KEY,
+            added_at        TEXT DEFAULT (datetime('now')),
+            last_scanned_at TEXT DEFAULT (datetime('now'))
+        );
+
         CREATE TABLE IF NOT EXISTS playlist_tracks (
             playlist_id INTEGER REFERENCES playlists(id) ON DELETE CASCADE,
             track_id    INTEGER REFERENCES tracks(id) ON DELETE CASCADE,
@@ -38,9 +44,18 @@ pub fn create_tables(conn: &Connection) -> Result<(), String> {
             PRIMARY KEY (playlist_id, track_id)
         );
 
+        CREATE TABLE IF NOT EXISTS track_artists (
+            track_id    INTEGER REFERENCES tracks(id) ON DELETE CASCADE,
+            artist_name TEXT NOT NULL,
+            PRIMARY KEY (track_id, artist_name)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
         CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album);
         CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title);
+        CREATE INDEX IF NOT EXISTS idx_tracks_path ON tracks(path);
+        CREATE INDEX IF NOT EXISTS idx_track_artists_name ON track_artists(artist_name);
+        CREATE INDEX IF NOT EXISTS idx_tracks_album_artist ON tracks(album_artist);
         ",
     )
     .map_err(|e| format!("Failed to create tables: {}", e))

@@ -78,6 +78,26 @@ export interface Playlist {
   updatedAt: string;
 }
 
+export interface ArtistInfo {
+  name: string;
+  trackCount: number;
+}
+
+export interface AlbumInfo {
+  album: string;
+  albumArtist: string | null;
+  year: number | null;
+  trackCount: number;
+  hasArt: boolean;
+  artTrackPath: string | null;
+}
+
+export interface LibraryRoot {
+  path: string;
+  addedAt: string;
+  lastScannedAt: string;
+}
+
 export const commands = {
   playFile: (path: string) => invoke("play_file", { path }),
   playQueue: (tracks: string[], index: number) =>
@@ -100,6 +120,13 @@ export const commands = {
   getTracks: () => invoke<Track[]>("get_tracks"),
   searchTracks: (query: string) => invoke<Track[]>("search_tracks", { query }),
   getTrackCount: () => invoke<number>("get_track_count"),
+  getLibraryRoots: () => invoke<LibraryRoot[]>("get_library_roots"),
+  removeLibraryRoot: (path: string) => invoke("remove_library_root", { path }),
+  getArtists: () => invoke<ArtistInfo[]>("get_artists"),
+  getArtistTracks: (artist: string) => invoke<Track[]>("get_artist_tracks", { artist }),
+  getAlbums: () => invoke<AlbumInfo[]>("get_albums"),
+  getAlbumTracks: (album: string, albumArtist: string | null) =>
+    invoke<Track[]>("get_album_tracks", { album, albumArtist }),
 
   createPlaylist: (name: string) => invoke<Playlist>("create_playlist", { name }),
   getPlaylists: () => invoke<Playlist[]>("get_playlists"),

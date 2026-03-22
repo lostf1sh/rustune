@@ -14,6 +14,8 @@ export function Sidebar() {
     activePlaylistId,
     viewPlaylist,
     viewLibrary,
+    viewArtists,
+    viewAlbums,
     createPlaylist,
     deletePlaylist,
   } = usePlaylistStore();
@@ -90,6 +92,27 @@ export function Sidebar() {
               <path d="M4 10V6M7 10V4M10 10V7.5M13 10V2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
             </svg>
             Library
+          </button>
+          <button
+            className={`${styles.navItem} ${viewMode === "artists" ? styles.active : ""}`}
+            onClick={viewArtists}
+          >
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+              <circle cx="7.5" cy="4.5" r="2.5" stroke="currentColor" strokeWidth="1.2" />
+              <path d="M2.5 13c0-2.76 2.24-5 5-5s5 2.24 5 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+            Artists
+          </button>
+          <button
+            className={`${styles.navItem} ${viewMode === "albums" ? styles.active : ""}`}
+            onClick={viewAlbums}
+          >
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+              <rect x="1.5" y="1.5" width="12" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+              <circle cx="7.5" cy="7.5" r="3" stroke="currentColor" strokeWidth="1.1" />
+              <circle cx="7.5" cy="7.5" r="1" fill="currentColor" />
+            </svg>
+            Albums
           </button>
         </div>
 

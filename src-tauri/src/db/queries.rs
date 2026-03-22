@@ -143,6 +143,292 @@ pub fn get_track_count(conn: &Connection) -> Result<i64, String> {
         .map_err(|e| e.to_string())
 }
 
+fn path_like_pattern(root: &str) -> String {
+    let escaped = root
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_");
+    format!("{escaped}%")
+}
+
+pub fn get_track_paths_in_root(conn: &Connection, root: &str) -> Result<Vec<String>, String> {
+    let pattern = path_like_pattern(root);
+    let mut stmt = conn
+        .prepare(
+            "SELECT path
+             FROM tracks
+             WHERE path = ?1 OR path LIKE ?2 ESCAPE '\\'",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let paths = stmt
+        .query_map(params![root, pattern], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(paths)
+}
+
+pub fn delete_tracks_by_paths(conn: &Connection, paths: &[String]) -> Result<(), String> {
+    let mut stmt = conn
+        .prepare("DELETE FROM tracks WHERE path = ?1")
+        .map_err(|e| e.to_string())?;
+
+    for path in paths {
+        stmt.execute(params![path]).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryRoot {
+    pub path: String,
+    pub added_at: String,
+    pub last_scanned_at: String,
+}
+
+pub fn upsert_library_root(conn: &Connection, path: &str) -> Result<(), String> {
+    conn.execute(
+        "INSERT INTO library_roots (path, added_at, last_scanned_at)
+         VALUES (?1, datetime('now'), datetime('now'))
+         ON CONFLICT(path) DO UPDATE SET last_scanned_at = datetime('now')",
+        params![path],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+pub fn get_library_roots(conn: &Connection) -> Result<Vec<LibraryRoot>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT path, added_at, last_scanned_at
+             FROM library_roots
+             ORDER BY path",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let roots = stmt
+        .query_map([], |row| {
+            Ok(LibraryRoot {
+                path: row.get(0)?,
+                added_at: row.get(1)?,
+                last_scanned_at: row.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(roots)
+}
+
+pub fn delete_library_root(conn: &Connection, path: &str) -> Result<(), String> {
+    conn.execute("DELETE FROM library_roots WHERE path = ?1", params![path])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// ── Track artists queries ──
+
+pub fn upsert_track_artists(conn: &Connection, track_id: i64, artists: &[String]) -> Result<(), String> {
+    conn.execute("DELETE FROM track_artists WHERE track_id = ?1", params![track_id])
+        .map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare("INSERT OR IGNORE INTO track_artists (track_id, artist_name) VALUES (?1, ?2)")
+        .map_err(|e| e.to_string())?;
+
+    for artist in artists {
+        let trimmed = artist.trim();
+        if !trimmed.is_empty() {
+            stmt.execute(params![track_id, trimmed]).map_err(|e| e.to_string())?;
+        }
+    }
+
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtistInfo {
+    pub name: String,
+    pub track_count: i64,
+}
+
+pub fn get_artists(conn: &Connection) -> Result<Vec<ArtistInfo>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT ta.artist_name, COUNT(DISTINCT ta.track_id) as track_count
+             FROM track_artists ta
+             GROUP BY ta.artist_name
+             ORDER BY ta.artist_name COLLATE NOCASE",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let artists = stmt
+        .query_map([], |row| {
+            Ok(ArtistInfo {
+                name: row.get(0)?,
+                track_count: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(artists)
+}
+
+pub fn get_artist_tracks(conn: &Connection, artist: &str) -> Result<Vec<Track>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT DISTINCT t.id, t.path, t.title, t.artist, t.album, t.album_artist, t.genre,
+                    t.track_number, t.disc_number, t.year, t.duration_ms, t.file_size,
+                    t.format, t.sample_rate, t.bit_depth, t.has_art
+             FROM tracks t
+             JOIN track_artists ta ON ta.track_id = t.id
+             WHERE ta.artist_name = ?1
+             ORDER BY t.album, t.disc_number, t.track_number, t.title",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let tracks = stmt
+        .query_map(params![artist], row_to_track)
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(tracks)
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlbumInfo {
+    pub album: String,
+    pub album_artist: Option<String>,
+    pub year: Option<i32>,
+    pub track_count: i64,
+    pub has_art: bool,
+    pub art_track_path: Option<String>,
+}
+
+pub fn get_albums(conn: &Connection) -> Result<Vec<AlbumInfo>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT
+                t.album,
+                t.album_artist,
+                MIN(t.year) as year,
+                COUNT(*) as track_count,
+                MAX(t.has_art) as has_art,
+                (SELECT t2.path FROM tracks t2
+                 WHERE t2.album = t.album
+                   AND COALESCE(t2.album_artist, '') = COALESCE(t.album_artist, '')
+                   AND t2.has_art = 1
+                 LIMIT 1) as art_track_path
+             FROM tracks t
+             WHERE t.album IS NOT NULL AND t.album != ''
+             GROUP BY t.album, COALESCE(t.album_artist, '')
+             ORDER BY t.album COLLATE NOCASE",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let albums = stmt
+        .query_map([], |row| {
+            Ok(AlbumInfo {
+                album: row.get(0)?,
+                album_artist: row.get(1)?,
+                year: row.get(2)?,
+                track_count: row.get(3)?,
+                has_art: row.get::<_, i32>(4).map(|v| v != 0)?,
+                art_track_path: row.get(5)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(albums)
+}
+
+pub fn get_album_tracks(
+    conn: &Connection,
+    album: &str,
+    album_artist: Option<&str>,
+) -> Result<Vec<Track>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, path, title, artist, album, album_artist, genre,
+                    track_number, disc_number, year, duration_ms, file_size,
+                    format, sample_rate, bit_depth, has_art
+             FROM tracks
+             WHERE album = ?1 AND COALESCE(album_artist, '') = COALESCE(?2, '')
+             ORDER BY disc_number, track_number, title",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let tracks = stmt
+        .query_map(params![album, album_artist], row_to_track)
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(tracks)
+}
+
+/// Backfill track_artists for existing tracks that don't have entries yet.
+pub fn backfill_track_artists(conn: &Connection) -> Result<(), String> {
+    use crate::library::artists::parse_artists;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT t.id, t.artist, t.album_artist FROM tracks t
+             WHERE t.id NOT IN (SELECT DISTINCT track_id FROM track_artists)
+               AND (t.artist IS NOT NULL OR t.album_artist IS NOT NULL)",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let rows: Vec<(i64, Option<String>, Option<String>)> = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    if rows.is_empty() {
+        return Ok(());
+    }
+
+    log::info!("Backfilling track_artists for {} tracks", rows.len());
+
+    let mut insert_stmt = conn
+        .prepare("INSERT OR IGNORE INTO track_artists (track_id, artist_name) VALUES (?1, ?2)")
+        .map_err(|e| e.to_string())?;
+
+    for (track_id, artist, album_artist) in &rows {
+        let mut all_artists = Vec::new();
+        if let Some(a) = artist {
+            all_artists.extend(parse_artists(a));
+        }
+        if let Some(aa) = album_artist {
+            all_artists.extend(parse_artists(aa));
+        }
+        // Deduplicate
+        let mut seen = std::collections::HashSet::new();
+        for name in &all_artists {
+            let key = name.to_lowercase();
+            if seen.insert(key) && !name.trim().is_empty() {
+                insert_stmt.execute(params![track_id, name.trim()]).map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
 // ── Playlist queries ──
 
 #[derive(Debug, Clone, Serialize)]
@@ -156,11 +442,8 @@ pub struct Playlist {
 }
 
 pub fn create_playlist(conn: &Connection, name: &str) -> Result<Playlist, String> {
-    conn.execute(
-        "INSERT INTO playlists (name) VALUES (?1)",
-        params![name],
-    )
-    .map_err(|e| e.to_string())?;
+    conn.execute("INSERT INTO playlists (name) VALUES (?1)", params![name])
+        .map_err(|e| e.to_string())?;
 
     let id = conn.last_insert_rowid();
     get_playlist(conn, id)
