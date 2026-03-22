@@ -1,0 +1,235 @@
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg);
+}
+
+/* Search */
+.header {
+  padding: 16px 20px 0;
+  flex-shrink: 0;
+}
+
+.searchWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.searchIcon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  caret-color: var(--now-playing);
+}
+
+.searchInput::placeholder {
+  color: var(--text-muted);
+}
+
+.resultCount {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Table */
+.tableWrap {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+}
+
+.table th {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.12s;
+}
+
+.table th:hover {
+  color: var(--text-secondary);
+}
+
+.thNum {
+  width: 48px;
+  padding-left: 20px !important;
+  text-align: center !important;
+}
+
+.thTitle {
+  width: 35%;
+}
+
+.thArtist {
+  width: 25%;
+}
+
+.thAlbum {
+  width: 25%;
+}
+
+.thDuration {
+  width: 72px;
+  text-align: right !important;
+  padding-right: 20px !important;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.sortIcon {
+  font-size: 9px;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
+/* Rows */
+.row {
+  transition: background 0.08s;
+  cursor: default;
+}
+
+.row:hover {
+  background: var(--surface-1);
+}
+
+.row td {
+  padding: 6px 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid transparent;
+}
+
+.row.playing {
+  background: var(--now-playing-dim);
+}
+
+.row.playing:hover {
+  background: rgba(200, 155, 60, 0.12);
+}
+
+/* Cells */
+.cellNum {
+  width: 48px;
+  padding-left: 20px !important;
+  text-align: center;
+}
+
+.num {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.numPlaying {
+  color: var(--now-playing);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cellTitle {
+  color: var(--text-primary);
+  font-weight: 400;
+}
+
+.titlePlaying {
+  color: var(--now-playing);
+}
+
+.cellArtist {
+  color: var(--text-secondary);
+}
+
+.cellAlbum {
+  color: var(--text-muted);
+}
+
+.cellDuration {
+  text-align: right;
+  padding-right: 20px !important;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Equalizer indicator */
+.eqBars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1.5px;
+  height: 14px;
+  justify-content: center;
+}
+
+.eqBar {
+  width: 2.5px;
+  height: 3px;
+  background: var(--now-playing);
+  border-radius: 1px;
+  animation: eq-bar 0.6s ease-in-out infinite;
+}
+
+/* Empty state */
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-bottom: 60px;
+}
+
+.emptyIcon {
+  margin-bottom: 8px;
+  opacity: 0.3;
+}
+
+.emptyTitle {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.emptyHint {
+  font-size: 12px;
+  color: var(--text-muted);
+}

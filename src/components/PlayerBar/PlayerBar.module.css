@@ -1,0 +1,189 @@
+.playerBar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  background: var(--surface-0);
+  border-top: 1px solid var(--border);
+  height: 60px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+/* Track info */
+.trackInfo {
+  min-width: 180px;
+  max-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.trackTitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trackArtist {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.noTrack {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Center: controls + seek */
+.center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.controlBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.12s;
+}
+
+.controlBtn:hover {
+  color: var(--text-primary);
+}
+
+.playBtn {
+  color: var(--text-primary);
+  width: 32px;
+  height: 32px;
+  background: var(--surface-3);
+  border-radius: 50%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s;
+}
+
+.playBtn:hover {
+  background: var(--accent-hover);
+}
+
+/* Seek bar */
+.seekBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.time {
+  font-size: 10px;
+  color: var(--text-muted);
+  min-width: 32px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.slider,
+.volumeSlider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  border-radius: 1.5px;
+  background: linear-gradient(
+    to right,
+    var(--text-muted) 0%,
+    var(--text-muted) var(--progress, 0%),
+    var(--surface-3) var(--progress, 0%),
+    var(--surface-3) 100%
+  );
+  outline: none;
+  cursor: pointer;
+  transition: height 0.1s;
+}
+
+.slider {
+  flex: 1;
+}
+
+.slider:hover,
+.volumeSlider:hover {
+  height: 5px;
+}
+
+.slider::-webkit-slider-thumb,
+.volumeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.slider:hover::-webkit-slider-thumb,
+.volumeSlider:hover::-webkit-slider-thumb {
+  opacity: 1;
+}
+
+.slider::-moz-range-thumb,
+.volumeSlider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.slider:hover::-moz-range-thumb,
+.volumeSlider:hover::-moz-range-thumb {
+  opacity: 1;
+}
+
+/* Volume */
+.volumeControl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 110px;
+}
+
+.volumeIcon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.volumeSlider {
+  width: 72px;
+}
