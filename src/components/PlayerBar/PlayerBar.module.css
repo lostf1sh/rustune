@@ -5,7 +5,7 @@
   padding: 0 20px;
   background: var(--surface-0);
   border-top: 1px solid var(--border);
-  height: 60px;
+  height: 72px;
   user-select: none;
   flex-shrink: 0;
 }
@@ -48,15 +48,16 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   max-width: 600px;
   margin: 0 auto;
+  padding-top: 4px;
 }
 
 .controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
 .controlBtn {
@@ -86,11 +87,67 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.12s, color 0.12s;
+  transition: background 0.15s, transform 0.1s;
 }
 
 .playBtn:hover {
   background: var(--accent-hover);
+}
+
+.playBtn:active {
+  transform: scale(0.95);
+}
+
+/* Shuffle / Repeat mode buttons */
+.modeBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: color 0.15s;
+}
+
+.modeBtn:hover {
+  color: var(--text-secondary);
+}
+
+.modeBtn.modeActive {
+  color: var(--now-playing);
+}
+
+.modeBtn.modeActive:hover {
+  color: var(--now-playing);
+  filter: brightness(1.2);
+}
+
+/* LED dot indicator — like hardware status LEDs */
+.modeDot {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--now-playing);
+  box-shadow: 0 0 4px var(--now-playing);
+}
+
+/* Repeat "1" badge */
+.repeatBadge {
+  position: absolute;
+  top: 0px;
+  right: -1px;
+  font-size: 7px;
+  font-weight: 700;
+  color: var(--now-playing);
+  line-height: 1;
 }
 
 /* Seek bar */
@@ -171,6 +228,13 @@
   opacity: 1;
 }
 
+/* Right section */
+.rightControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 /* Volume */
 .volumeControl {
   display: flex;
@@ -186,4 +250,45 @@
 
 .volumeSlider {
   width: 72px;
+}
+
+/* Queue toggle */
+.queueBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.12s;
+  position: relative;
+}
+
+.queueBtn:hover {
+  color: var(--text-secondary);
+}
+
+.queueBtnActive {
+  color: var(--now-playing);
+}
+
+.queueBadge {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  font-size: 8px;
+  font-weight: 600;
+  color: var(--surface-0);
+  background: var(--text-muted);
+  min-width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  font-variant-numeric: tabular-nums;
 }

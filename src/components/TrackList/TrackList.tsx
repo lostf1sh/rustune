@@ -24,7 +24,7 @@ function EqIndicator() {
 export function TrackList() {
   const { filteredTracks, searchQuery, setSearchQuery, sortField, sortDir, setSort } =
     useLibraryStore();
-  const { playFile, currentTrack, isPlaying } = usePlayerStore();
+  const { playQueue, currentTrack, isPlaying } = usePlayerStore();
   const searchRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -39,8 +39,9 @@ export function TrackList() {
     [setSearchQuery]
   );
 
-  const handlePlay = async (path: string) => {
-    await playFile(path);
+  const handlePlay = async (index: number) => {
+    const paths = filteredTracks.map((t) => t.path);
+    await playQueue(paths, index);
   };
 
   const SortIcon = ({ field }: { field: string }) => {
@@ -153,7 +154,7 @@ export function TrackList() {
                 <tr
                   key={track.id}
                   className={`${styles.row} ${isCurrent ? styles.playing : ""}`}
-                  onDoubleClick={() => handlePlay(track.path)}
+                  onDoubleClick={() => handlePlay(i)}
                 >
                   <td className={styles.cellNum}>
                     {isCurrent && isPlaying ? (

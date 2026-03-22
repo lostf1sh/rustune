@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { PlayerBar } from "./components/PlayerBar/PlayerBar";
+import { QueuePanel } from "./components/QueuePanel/QueuePanel";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { TrackList } from "./components/TrackList/TrackList";
 import { usePlayerStore } from "./stores/playerStore";
@@ -33,6 +34,7 @@ function App() {
         <TrackList />
       </div>
       <PlayerBar />
+      <QueuePanel />
     </div>
   );
 }

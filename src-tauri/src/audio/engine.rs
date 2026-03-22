@@ -8,15 +8,24 @@ use tauri::{AppHandle, Emitter};
 
 use super::decoder::Decoder;
 use super::output::AudioOutput;
+use super::queue::{QueueState, RepeatMode};
 
 #[derive(Debug)]
 pub enum AudioCommand {
     Play(String),
+    PlayQueue(Vec<String>, usize),
     Pause,
     Resume,
     Stop,
     Seek(f64),
     SetVolume(f32),
+    NextTrack,
+    PrevTrack,
+    ToggleShuffle,
+    CycleRepeat,
+    AddToQueue(String),
+    RemoveFromQueue(usize),
+    ClearQueue,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -27,6 +36,10 @@ pub struct PlaybackState {
     pub position_secs: f64,
     pub duration_secs: f64,
     pub volume: f32,
+    pub queue: Vec<String>,
+    pub queue_index: Option<usize>,
+    pub shuffle: bool,
+    pub repeat: RepeatMode,
 }
 
 impl Default for PlaybackState {
@@ -37,6 +50,10 @@ impl Default for PlaybackState {
             position_secs: 0.0,
             duration_secs: 0.0,
             volume: 1.0,
+            queue: Vec::new(),
+            queue_index: None,
+            shuffle: false,
+            repeat: RepeatMode::Off,
         }
     }
 }
@@ -68,9 +85,7 @@ impl AudioEngine {
     }
 }
 
-// Max buffered audio before we pause decoding (~200ms at 48kHz stereo)
 const MAX_BUFFER_SAMPLES: usize = 48000 * 2 / 5;
-// How often to emit state to frontend
 const EMIT_INTERVAL: Duration = Duration::from_millis(100);
 
 fn audio_thread_main(
@@ -82,63 +97,19 @@ fn audio_thread_main(
     let mut audio_output: Option<AudioOutput> = None;
     let mut paused = false;
     let mut last_emit = Instant::now();
+    let mut queue = QueueState::default();
 
     loop {
         // Process all pending commands
         loop {
             match rx.try_recv() {
                 Ok(AudioCommand::Play(path)) => {
-                    // Clear buffer immediately for instant response
-                    if let Some(ref out) = audio_output {
-                        out.clear();
-                    }
-                    decoder.take();
-                    paused = false;
-
-                    match Decoder::new(&path) {
-                        Ok(dec) => {
-                            let duration = dec.duration_secs();
-                            let spec = dec.signal_spec();
-                            let sample_rate = spec.rate;
-                            let channels = spec.channels.count() as u16;
-
-                            // Reuse output if format matches, otherwise recreate
-                            let needs_new_output = audio_output
-                                .as_ref()
-                                .map(|o| !o.matches(sample_rate, channels))
-                                .unwrap_or(true);
-
-                            if needs_new_output {
-                                audio_output.take();
-                                match AudioOutput::new(sample_rate, channels) {
-                                    Ok(out) => audio_output = Some(out),
-                                    Err(e) => {
-                                        log::error!("Failed to create audio output: {}", e);
-                                        let mut s = state.lock().unwrap();
-                                        s.is_playing = false;
-                                        s.current_track = None;
-                                        continue;
-                                    }
-                                }
-                            }
-
-                            {
-                                let mut s = state.lock().unwrap();
-                                s.is_playing = true;
-                                s.current_track = Some(path.clone());
-                                s.position_secs = 0.0;
-                                s.duration_secs = duration;
-                            }
-                            decoder = Some(dec);
-                            log::info!("Playing: {}", path);
-                        }
-                        Err(e) => {
-                            log::error!("Failed to open file: {}", e);
-                            let mut s = state.lock().unwrap();
-                            s.is_playing = false;
-                            s.current_track = None;
-                        }
-                    }
+                    queue.set_tracks(vec![path], 0);
+                    start_track(&queue, &mut decoder, &mut audio_output, &state, &mut paused);
+                }
+                Ok(AudioCommand::PlayQueue(tracks, index)) => {
+                    queue.set_tracks(tracks, index);
+                    start_track(&queue, &mut decoder, &mut audio_output, &state, &mut paused);
                 }
                 Ok(AudioCommand::Pause) => {
                     paused = true;
@@ -155,12 +126,14 @@ fn audio_thread_main(
                         out.clear();
                     }
                     decoder.take();
+                    queue.clear();
                     paused = false;
                     let mut s = state.lock().unwrap();
                     s.is_playing = false;
                     s.current_track = None;
                     s.position_secs = 0.0;
                     s.duration_secs = 0.0;
+                    sync_queue_state(&queue, &mut s);
                 }
                 Ok(AudioCommand::Seek(pos)) => {
                     if let Some(ref out) = audio_output {
@@ -174,6 +147,60 @@ fn audio_thread_main(
                 Ok(AudioCommand::SetVolume(vol)) => {
                     state.lock().unwrap().volume = vol.clamp(0.0, 1.0);
                 }
+                Ok(AudioCommand::NextTrack) => {
+                    if queue.next_track().is_some() {
+                        start_track(&queue, &mut decoder, &mut audio_output, &state, &mut paused);
+                    }
+                }
+                Ok(AudioCommand::PrevTrack) => {
+                    // If past 3 seconds, restart current track instead
+                    let pos = state.lock().unwrap().position_secs;
+                    if pos > 3.0 {
+                        if let Some(ref out) = audio_output {
+                            out.clear();
+                        }
+                        if let Some(ref mut dec) = decoder {
+                            dec.seek(0.0);
+                            state.lock().unwrap().position_secs = 0.0;
+                        }
+                    } else if queue.prev_track().is_some() {
+                        start_track(&queue, &mut decoder, &mut audio_output, &state, &mut paused);
+                    }
+                }
+                Ok(AudioCommand::ToggleShuffle) => {
+                    queue.toggle_shuffle();
+                    let mut s = state.lock().unwrap();
+                    sync_queue_state(&queue, &mut s);
+                }
+                Ok(AudioCommand::CycleRepeat) => {
+                    queue.cycle_repeat();
+                    let mut s = state.lock().unwrap();
+                    sync_queue_state(&queue, &mut s);
+                }
+                Ok(AudioCommand::AddToQueue(path)) => {
+                    queue.add_track(path);
+                    let mut s = state.lock().unwrap();
+                    sync_queue_state(&queue, &mut s);
+                }
+                Ok(AudioCommand::RemoveFromQueue(index)) => {
+                    queue.remove_track(index);
+                    let mut s = state.lock().unwrap();
+                    sync_queue_state(&queue, &mut s);
+                }
+                Ok(AudioCommand::ClearQueue) => {
+                    if let Some(ref out) = audio_output {
+                        out.clear();
+                    }
+                    decoder.take();
+                    queue.clear();
+                    paused = false;
+                    let mut s = state.lock().unwrap();
+                    s.is_playing = false;
+                    s.current_track = None;
+                    s.position_secs = 0.0;
+                    s.duration_secs = 0.0;
+                    sync_queue_state(&queue, &mut s);
+                }
                 Err(mpsc::TryRecvError::Empty) => break,
                 Err(mpsc::TryRecvError::Disconnected) => return,
             }
@@ -183,7 +210,6 @@ fn audio_thread_main(
         if !paused {
             if let Some(ref mut dec) = decoder {
                 if let Some(ref out) = audio_output {
-                    // Only decode if buffer isn't too full
                     if out.buffered_samples() < MAX_BUFFER_SAMPLES {
                         let volume = state.lock().unwrap().volume;
                         match dec.next_samples() {
@@ -191,38 +217,113 @@ fn audio_thread_main(
                                 let samples: Vec<f32> =
                                     samples.iter().map(|s| s * volume).collect();
                                 out.write(&samples);
-
                                 let pos = dec.position_secs();
                                 state.lock().unwrap().position_secs = pos;
                             }
                             None => {
-                                // Track finished
+                                // Track finished — auto-advance
                                 decoder.take();
-                                let mut s = state.lock().unwrap();
-                                s.is_playing = false;
-                                s.position_secs = s.duration_secs;
-                                app.emit("track-ended", ()).ok();
-                                log::info!("Track finished");
+                                if queue.next_track().is_some() {
+                                    start_track(
+                                        &queue,
+                                        &mut decoder,
+                                        &mut audio_output,
+                                        &state,
+                                        &mut paused,
+                                    );
+                                } else {
+                                    let mut s = state.lock().unwrap();
+                                    s.is_playing = false;
+                                    s.position_secs = s.duration_secs;
+                                    sync_queue_state(&queue, &mut s);
+                                    app.emit("track-ended", ()).ok();
+                                }
                             }
                         }
                     } else {
-                        // Buffer full, sleep briefly to avoid busy-spinning
                         thread::sleep(Duration::from_millis(5));
                     }
                 }
             }
         }
 
-        // Emit state to frontend at regular intervals
         if last_emit.elapsed() >= EMIT_INTERVAL {
             let s = state.lock().unwrap().clone();
             app.emit("playback-state", s).ok();
             last_emit = Instant::now();
         }
 
-        // Sleep when idle to avoid CPU burn
         if paused || decoder.is_none() {
             thread::sleep(Duration::from_millis(30));
         }
     }
+}
+
+fn start_track(
+    queue: &QueueState,
+    decoder: &mut Option<Decoder>,
+    audio_output: &mut Option<AudioOutput>,
+    state: &Arc<Mutex<PlaybackState>>,
+    paused: &mut bool,
+) {
+    if let Some(ref out) = audio_output {
+        out.clear();
+    }
+    decoder.take();
+    *paused = false;
+
+    let path = match queue.current_track() {
+        Some(p) => p.to_string(),
+        None => return,
+    };
+
+    match Decoder::new(&path) {
+        Ok(dec) => {
+            let duration = dec.duration_secs();
+            let spec = dec.signal_spec();
+            let sample_rate = spec.rate;
+            let channels = spec.channels.count() as u16;
+
+            let needs_new = audio_output
+                .as_ref()
+                .map(|o| !o.matches(sample_rate, channels))
+                .unwrap_or(true);
+
+            if needs_new {
+                audio_output.take();
+                match AudioOutput::new(sample_rate, channels) {
+                    Ok(out) => *audio_output = Some(out),
+                    Err(e) => {
+                        log::error!("Failed to create audio output: {}", e);
+                        let mut s = state.lock().unwrap();
+                        s.is_playing = false;
+                        return;
+                    }
+                }
+            }
+
+            {
+                let mut s = state.lock().unwrap();
+                s.is_playing = true;
+                s.current_track = Some(path.clone());
+                s.position_secs = 0.0;
+                s.duration_secs = duration;
+                sync_queue_state(queue, &mut s);
+            }
+            *decoder = Some(dec);
+            log::info!("Playing: {}", path);
+        }
+        Err(e) => {
+            log::error!("Failed to open file: {}", e);
+            let mut s = state.lock().unwrap();
+            s.is_playing = false;
+        }
+    }
+}
+
+fn sync_queue_state(queue: &QueueState, state: &mut PlaybackState) {
+    state.queue = queue.tracks.clone();
+    state.queue_index = queue.current_index;
+    state.shuffle = queue.shuffle;
+    state.repeat = queue.repeat;
 }
