@@ -6,7 +6,7 @@ mod lyrics;
 mod tags;
 
 use audio::engine::AudioEngine;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -30,7 +30,15 @@ pub fn run() {
             // Initialize database
             let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
             let conn = db::init_db(&app_data_dir).map_err(|e| e.to_string())?;
-            app.manage(Mutex::new(conn) as db::DbConn);
+            let db_conn: db::DbConn = Arc::new(Mutex::new(conn));
+            app.manage(db_conn.clone());
+
+            // Start library file watcher
+            let watcher = library::watcher::LibraryWatcher::new(db_conn, app.handle().clone());
+            if let Err(e) = watcher.watch_all_roots() {
+                log::warn!("Failed to start library watchers: {}", e);
+            }
+            app.manage(watcher);
 
             Ok(())
         })

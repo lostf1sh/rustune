@@ -192,7 +192,7 @@ export function NowPlaying() {
     if (trackMeta?.title && trackMeta?.artist) {
       const dur = trackMeta.durationMs ? trackMeta.durationMs / 1000 : durationSecs;
       commands
-        .fetchLyrics(trackMeta.title, trackMeta.artist, trackMeta.album ?? "", dur)
+        .fetchLyrics(currentTrack!, trackMeta.title, trackMeta.artist, trackMeta.album ?? "", dur)
         .then((result) => {
           if (lastPathRef.current === currentTrack) {
             setLyrics(result);

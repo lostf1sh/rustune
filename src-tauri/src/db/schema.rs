@@ -58,6 +58,13 @@ pub fn create_tables(conn: &Connection) -> Result<(), String> {
 
         CREATE INDEX IF NOT EXISTS idx_play_history_track ON play_history(track_id);
         CREATE INDEX IF NOT EXISTS idx_play_history_time ON play_history(played_at DESC);
+        CREATE TABLE IF NOT EXISTS lyrics_cache (
+            track_path    TEXT PRIMARY KEY,
+            synced_lyrics TEXT,
+            plain_lyrics  TEXT,
+            fetched_at    TEXT DEFAULT (datetime('now'))
+        );
+
         CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
         CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album);
         CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title);

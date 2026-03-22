@@ -459,6 +459,45 @@ pub fn get_recent_plays(conn: &Connection, limit: i64) -> Result<Vec<Track>, Str
     Ok(tracks)
 }
 
+// ── Lyrics cache queries ──
+
+pub struct CachedLyrics {
+    pub synced_lyrics: Option<String>,
+    pub plain_lyrics: Option<String>,
+}
+
+pub fn get_cached_lyrics(conn: &Connection, track_path: &str) -> Result<Option<CachedLyrics>, String> {
+    let mut stmt = conn
+        .prepare("SELECT synced_lyrics, plain_lyrics FROM lyrics_cache WHERE track_path = ?1")
+        .map_err(|e| e.to_string())?;
+
+    let result = stmt
+        .query_row(params![track_path], |row| {
+            Ok(CachedLyrics {
+                synced_lyrics: row.get(0)?,
+                plain_lyrics: row.get(1)?,
+            })
+        })
+        .ok();
+
+    Ok(result)
+}
+
+pub fn cache_lyrics(
+    conn: &Connection,
+    track_path: &str,
+    synced: Option<&str>,
+    plain: Option<&str>,
+) -> Result<(), String> {
+    conn.execute(
+        "INSERT OR REPLACE INTO lyrics_cache (track_path, synced_lyrics, plain_lyrics, fetched_at)
+         VALUES (?1, ?2, ?3, datetime('now'))",
+        params![track_path, synced, plain],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// Backfill track_artists for existing tracks that don't have entries yet.
 pub fn backfill_track_artists(conn: &Connection) -> Result<(), String> {
     use crate::library::artists::parse_artists;

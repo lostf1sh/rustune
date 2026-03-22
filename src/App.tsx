@@ -29,6 +29,14 @@ function App() {
     loadPlaylists();
   }, [loadTracks, loadRoots, loadPlaylists]);
 
+  // Auto-reload library on filesystem changes
+  useEffect(() => {
+    const unlisten = listen("library-changed", () => {
+      loadTracks();
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  }, [loadTracks]);
+
   // Playback state listener + window title update
   useEffect(() => {
     const unlisten = listen<PlaybackState>("playback-state", (event) => {

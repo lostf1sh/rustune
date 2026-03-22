@@ -153,6 +153,6 @@ export const commands = {
   writeTags: (path: string, tags: TagUpdate) =>
     invoke("write_tags", { path, tags }),
 
-  fetchLyrics: (title: string, artist: string, album: string, durationSecs: number) =>
-    invoke<LyricsResult>("fetch_lyrics", { title, artist, album, durationSecs }),
+  fetchLyrics: (trackPath: string, title: string, artist: string, album: string, durationSecs: number) =>
+    invoke<LyricsResult>("fetch_lyrics", { trackPath, title, artist, album, durationSecs }),
 };

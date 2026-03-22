@@ -21,12 +21,18 @@ struct LrcLibResponse {
     plain_lyrics: Option<String>,
 }
 
-pub async fn fetch_lyrics(
+/// Raw result before parsing, for caching purposes.
+pub struct LrcLibRawResult {
+    pub synced_lyrics_raw: Option<String>,
+    pub plain_lyrics: Option<String>,
+}
+
+pub async fn fetch_lyrics_raw(
     title: &str,
     artist: &str,
     album: &str,
     duration_secs: f64,
-) -> Result<LyricsResult, String> {
+) -> Result<LrcLibRawResult, String> {
     let client = reqwest::Client::new();
     let duration = duration_secs.round() as i64;
 
@@ -44,9 +50,9 @@ pub async fn fetch_lyrics(
         .map_err(|e| format!("HTTP error: {}", e))?;
 
     if !resp.status().is_success() {
-        return Ok(LyricsResult {
-            synced: None,
-            plain: None,
+        return Ok(LrcLibRawResult {
+            synced_lyrics_raw: None,
+            plain_lyrics: None,
         });
     }
 
@@ -55,13 +61,13 @@ pub async fn fetch_lyrics(
         .await
         .map_err(|e| format!("Parse error: {}", e))?;
 
-    let synced = data.synced_lyrics.as_deref().map(parse_lrc);
-    let plain = data.plain_lyrics;
-
-    Ok(LyricsResult { synced, plain })
+    Ok(LrcLibRawResult {
+        synced_lyrics_raw: data.synced_lyrics,
+        plain_lyrics: data.plain_lyrics,
+    })
 }
 
-fn parse_lrc(lrc: &str) -> Vec<LyricsLine> {
+pub fn parse_lrc(lrc: &str) -> Vec<LyricsLine> {
     let mut lines = Vec::new();
 
     for line in lrc.lines() {

@@ -3,11 +3,21 @@ use tauri::{AppHandle, State};
 use crate::db::queries::{self, AlbumInfo, ArtistInfo, LibraryRoot, Track};
 use crate::db::DbConn;
 use crate::library::scanner;
+use crate::library::watcher::LibraryWatcher;
 
 #[tauri::command]
-pub fn scan_folder(folder: String, db: State<'_, DbConn>, app: AppHandle) -> Result<u32, String> {
+pub fn scan_folder(
+    folder: String,
+    db: State<'_, DbConn>,
+    app: AppHandle,
+    watcher: State<'_, LibraryWatcher>,
+) -> Result<u32, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
-    scanner::scan_folder(&conn, &folder, &app)
+    let count = scanner::scan_folder(&conn, &folder, &app)?;
+    drop(conn);
+    let root = scanner::normalize_root_path(&folder)?;
+    watcher.watch_root(&root.to_string_lossy()).ok();
+    Ok(count)
 }
 
 #[tauri::command]
@@ -35,13 +45,19 @@ pub fn get_library_roots(db: State<'_, DbConn>) -> Result<Vec<LibraryRoot>, Stri
 }
 
 #[tauri::command]
-pub fn remove_library_root(path: String, db: State<'_, DbConn>) -> Result<(), String> {
+pub fn remove_library_root(
+    path: String,
+    db: State<'_, DbConn>,
+    watcher: State<'_, LibraryWatcher>,
+) -> Result<(), String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
     let tracked_paths = queries::get_track_paths_in_root(&conn, &path)?;
 
     queries::delete_library_root(&conn, &path)?;
     queries::delete_tracks_by_paths(&conn, &tracked_paths)?;
+    drop(conn);
 
+    watcher.unwatch_root(&path);
     Ok(())
 }
 

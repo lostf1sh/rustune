@@ -2,9 +2,9 @@ pub mod queries;
 pub mod schema;
 
 use rusqlite::Connection;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-pub type DbConn = Mutex<Connection>;
+pub type DbConn = Arc<Mutex<Connection>>;
 
 pub fn init_db(app_data_dir: &std::path::Path) -> Result<Connection, String> {
     std::fs::create_dir_all(app_data_dir)
