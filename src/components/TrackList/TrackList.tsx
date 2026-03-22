@@ -1,6 +1,8 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLibraryStore } from "../../stores/libraryStore";
 import { usePlayerStore } from "../../stores/playerStore";
+import { usePlaylistStore } from "../../stores/playlistStore";
+import type { Track } from "../../lib/commands";
 import styles from "./TrackList.module.css";
 
 function formatDuration(ms: number | null): string {
@@ -21,12 +23,40 @@ function EqIndicator() {
   );
 }
 
+interface ContextMenuState {
+  x: number;
+  y: number;
+  trackId: number;
+}
+
 export function TrackList() {
   const { filteredTracks, searchQuery, setSearchQuery, sortField, sortDir, setSort } =
     useLibraryStore();
   const { playQueue, currentTrack, isPlaying } = usePlayerStore();
+  const {
+    viewMode,
+    activePlaylistId,
+    activePlaylistTracks,
+    playlists,
+    addTracksToPlaylist,
+    removeTrackFromPlaylist,
+  } = usePlaylistStore();
+
   const searchRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  const isPlaylistView = viewMode === "playlist";
+  const displayTracks: Track[] = isPlaylistView ? activePlaylistTracks : filteredTracks;
+  const activePlaylist = playlists.find((p) => p.id === activePlaylistId);
+
+  // Close context menu on click outside
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleClick = () => setContextMenu(null);
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+  }, [contextMenu]);
 
   const handleSearch = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,8 +70,21 @@ export function TrackList() {
   );
 
   const handlePlay = async (index: number) => {
-    const paths = filteredTracks.map((t) => t.path);
+    const paths = displayTracks.map((t) => t.path);
     await playQueue(paths, index);
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, trackId: number) => {
+    e.preventDefault();
+    if (playlists.length === 0) return;
+    setContextMenu({ x: e.clientX, y: e.clientY, trackId });
+  };
+
+  const handleAddToPlaylist = async (playlistId: number) => {
+    if (contextMenu) {
+      await addTracksToPlaylist(playlistId, [contextMenu.trackId]);
+      setContextMenu(null);
+    }
   };
 
   const SortIcon = ({ field }: { field: string }) => {
@@ -53,7 +96,7 @@ export function TrackList() {
     );
   };
 
-  if (filteredTracks.length === 0 && !searchQuery) {
+  if (displayTracks.length === 0 && !searchQuery) {
     return (
       <div className={styles.container}>
         <div className={styles.empty}>
@@ -68,9 +111,13 @@ export function TrackList() {
               />
             </svg>
           </div>
-          <p className={styles.emptyTitle}>No tracks yet</p>
+          <p className={styles.emptyTitle}>
+            {isPlaylistView ? "Playlist is empty" : "No tracks yet"}
+          </p>
           <p className={styles.emptyHint}>
-            Add a folder from the sidebar to get started
+            {isPlaylistView
+              ? "Right-click tracks in Library to add them"
+              : "Add a folder from the sidebar to get started"}
           </p>
         </div>
       </div>
@@ -80,36 +127,34 @@ export function TrackList() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <div className={styles.searchWrap}>
-          <svg
-            className={styles.searchIcon}
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-          >
-            <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2" />
-            <path
-              d="M9.5 9.5L13 13"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-            />
-          </svg>
-          <input
-            ref={searchRef}
-            type="text"
-            className={styles.searchInput}
-            placeholder="Search tracks..."
-            defaultValue={searchQuery}
-            onChange={handleSearch}
-          />
-          {searchQuery && (
-            <span className={styles.resultCount}>
-              {filteredTracks.length} result{filteredTracks.length !== 1 ? "s" : ""}
+        {isPlaylistView && activePlaylist ? (
+          <div className={styles.playlistHeader}>
+            <h2 className={styles.playlistTitle}>{activePlaylist.name}</h2>
+            <span className={styles.playlistMeta}>
+              {activePlaylist.trackCount} track{activePlaylist.trackCount !== 1 ? "s" : ""}
             </span>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className={styles.searchWrap}>
+            <svg className={styles.searchIcon} width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2" />
+              <path d="M9.5 9.5L13 13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+            <input
+              ref={searchRef}
+              type="text"
+              className={styles.searchInput}
+              placeholder="Search tracks..."
+              defaultValue={searchQuery}
+              onChange={handleSearch}
+            />
+            {searchQuery && (
+              <span className={styles.resultCount}>
+                {filteredTracks.length} result{filteredTracks.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className={styles.tableWrap}>
@@ -117,44 +162,34 @@ export function TrackList() {
           <thead>
             <tr>
               <th className={styles.thNum}>#</th>
-              <th
-                className={styles.thTitle}
-                onClick={() => setSort("title")}
-              >
-                TITLE <SortIcon field="title" />
+              <th className={styles.thTitle} onClick={() => !isPlaylistView && setSort("title")}>
+                TITLE {!isPlaylistView && <SortIcon field="title" />}
               </th>
-              <th
-                className={styles.thArtist}
-                onClick={() => setSort("artist")}
-              >
-                ARTIST <SortIcon field="artist" />
+              <th className={styles.thArtist} onClick={() => !isPlaylistView && setSort("artist")}>
+                ARTIST {!isPlaylistView && <SortIcon field="artist" />}
               </th>
-              <th
-                className={styles.thAlbum}
-                onClick={() => setSort("album")}
-              >
-                ALBUM <SortIcon field="album" />
+              <th className={styles.thAlbum} onClick={() => !isPlaylistView && setSort("album")}>
+                ALBUM {!isPlaylistView && <SortIcon field="album" />}
               </th>
-              <th
-                className={styles.thDuration}
-                onClick={() => setSort("duration")}
-              >
+              <th className={styles.thDuration} onClick={() => !isPlaylistView && setSort("duration")}>
                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                   <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.1" />
                   <path d="M6.5 3.5v3.5l2.5 1.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
                 </svg>
-                <SortIcon field="duration" />
+                {!isPlaylistView && <SortIcon field="duration" />}
               </th>
+              {isPlaylistView && <th className={styles.thAction} />}
             </tr>
           </thead>
           <tbody>
-            {filteredTracks.map((track, i) => {
+            {displayTracks.map((track, i) => {
               const isCurrent = currentTrack === track.path;
               return (
                 <tr
-                  key={track.id}
+                  key={`${track.id}-${i}`}
                   className={`${styles.row} ${isCurrent ? styles.playing : ""}`}
                   onDoubleClick={() => handlePlay(i)}
+                  onContextMenu={(e) => handleContextMenu(e, track.id)}
                 >
                   <td className={styles.cellNum}>
                     {isCurrent && isPlaying ? (
@@ -179,12 +214,47 @@ export function TrackList() {
                   <td className={styles.cellDuration}>
                     {formatDuration(track.durationMs)}
                   </td>
+                  {isPlaylistView && activePlaylistId && (
+                    <td className={styles.cellAction}>
+                      <button
+                        className={styles.removeBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeTrackFromPlaylist(activePlaylistId, track.id);
+                        }}
+                        title="Remove from playlist"
+                      >
+                        <svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                          <path d="M2 2l6 6M8 2l-6 6" />
+                        </svg>
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+
+      {/* Context menu */}
+      {contextMenu && playlists.length > 0 && (
+        <div
+          className={styles.contextMenu}
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <div className={styles.contextLabel}>Add to playlist</div>
+          {playlists.map((pl) => (
+            <button
+              key={pl.id}
+              className={styles.contextItem}
+              onClick={() => handleAddToPlaylist(pl.id)}
+            >
+              {pl.name}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -6,16 +6,19 @@ import { Sidebar } from "./components/Sidebar/Sidebar";
 import { TrackList } from "./components/TrackList/TrackList";
 import { usePlayerStore } from "./stores/playerStore";
 import { useLibraryStore } from "./stores/libraryStore";
+import { usePlaylistStore } from "./stores/playlistStore";
 import type { PlaybackState } from "./lib/commands";
 import styles from "./App.module.css";
 
 function App() {
   const updateFromBackend = usePlayerStore((s) => s.updateFromBackend);
   const loadTracks = useLibraryStore((s) => s.loadTracks);
+  const loadPlaylists = usePlaylistStore((s) => s.loadPlaylists);
 
   useEffect(() => {
     loadTracks();
-  }, [loadTracks]);
+    loadPlaylists();
+  }, [loadTracks, loadPlaylists]);
 
   useEffect(() => {
     const unlisten = listen<PlaybackState>("playback-state", (event) => {

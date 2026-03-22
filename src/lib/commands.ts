@@ -33,6 +33,14 @@ export interface Track {
   hasArt: boolean;
 }
 
+export interface Playlist {
+  id: number;
+  name: string;
+  trackCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const commands = {
   playFile: (path: string) => invoke("play_file", { path }),
   playQueue: (tracks: string[], index: number) =>
@@ -55,4 +63,16 @@ export const commands = {
   getTracks: () => invoke<Track[]>("get_tracks"),
   searchTracks: (query: string) => invoke<Track[]>("search_tracks", { query }),
   getTrackCount: () => invoke<number>("get_track_count"),
+
+  createPlaylist: (name: string) => invoke<Playlist>("create_playlist", { name }),
+  getPlaylists: () => invoke<Playlist[]>("get_playlists"),
+  renamePlaylist: (id: number, name: string) =>
+    invoke("rename_playlist", { id, name }),
+  deletePlaylist: (id: number) => invoke("delete_playlist", { id }),
+  addTracksToPlaylist: (playlistId: number, trackIds: number[]) =>
+    invoke("add_tracks_to_playlist", { playlistId, trackIds }),
+  removeTrackFromPlaylist: (playlistId: number, trackId: number) =>
+    invoke("remove_track_from_playlist", { playlistId, trackId }),
+  getPlaylistTracks: (playlistId: number) =>
+    invoke<Track[]>("get_playlist_tracks", { playlistId }),
 };
