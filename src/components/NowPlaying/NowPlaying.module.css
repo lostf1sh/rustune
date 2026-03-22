@@ -354,24 +354,15 @@
   padding: 8px 12px;
   border-radius: 6px;
   cursor: pointer;
-  transition: color 0.35s ease, opacity 0.35s ease, font-weight 0.35s ease;
-  opacity: var(--dist-opacity, 0.35);
   line-height: 1.55;
   font-weight: 400;
+  opacity: 0.35;
+  will-change: opacity, color;
+  transition: opacity 0.5s ease, color 0.5s ease, font-weight 0.3s ease;
 }
 
 .lyricsLine:hover {
   background: var(--surface-1);
-}
-
-.lyricsLineCurrent {
-  font-weight: 600;
-  color: var(--now-playing);
-  opacity: 1 !important;
-}
-
-.lyricsLinePast {
-  color: var(--text-muted);
 }
 
 /* Plain lyrics */

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePlayerStore } from "../../stores/playerStore";
 import { useLibraryStore } from "../../stores/libraryStore";
-import { commands, type AlbumArt, type LyricsLine, type LyricsResult } from "../../lib/commands";
+import { commands, type AlbumArt, type LyricsResult } from "../../lib/commands";
 import styles from "./NowPlaying.module.css";
 
 function formatTime(secs: number): string {
@@ -9,6 +9,134 @@ function formatTime(secs: number): string {
   const s = Math.floor(secs % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
+
+// ── Isolated Lyrics Panel (memo'd, doesn't re-render on positionSecs) ──
+
+interface LyricsPanelProps {
+  lyrics: LyricsResult;
+  onSeek: (timeMs: number) => void;
+}
+
+const LyricsPanel = memo(function LyricsPanel({ lyrics, onSeek }: LyricsPanelProps) {
+  const positionSecs = usePlayerStore((s) => s.positionSecs);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const animFrameRef = useRef<number>(0);
+  const prevLineRef = useRef(-1);
+
+  const hasSynced = !!lyrics.synced;
+
+  // Find current line index
+  const currentLineIndex = useMemo(() => {
+    if (!lyrics.synced) return -1;
+    const posMs = positionSecs * 1000;
+    let idx = -1;
+    for (let i = 0; i < lyrics.synced.length; i++) {
+      if (lyrics.synced[i].timeMs <= posMs) idx = i;
+      else break;
+    }
+    return idx;
+  }, [lyrics.synced, positionSecs]);
+
+  // Smooth scroll — only when line actually changes
+  useEffect(() => {
+    if (currentLineIndex === prevLineRef.current) return;
+    prevLineRef.current = currentLineIndex;
+
+    const container = scrollRef.current;
+    const lineEl = lineRefs.current.get(currentLineIndex);
+    if (!container || !lineEl) return;
+
+    const containerH = container.clientHeight;
+    const lineTop = lineEl.offsetTop;
+    const lineH = lineEl.offsetHeight;
+    const target = lineTop - containerH / 2 + lineH / 2;
+    const start = container.scrollTop;
+    const dist = target - start;
+
+    if (Math.abs(dist) < 1) return;
+
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+
+    const duration = 500;
+    const t0 = performance.now();
+
+    const tick = (now: number) => {
+      const p = Math.min((now - t0) / duration, 1);
+      // ease-out quart
+      const e = 1 - Math.pow(1 - p, 4);
+      container.scrollTop = start + dist * e;
+      if (p < 1) animFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    animFrameRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+  }, [currentLineIndex]);
+
+  // Update line styles via DOM directly (no React re-render)
+  useEffect(() => {
+    if (!lyrics.synced) return;
+    lineRefs.current.forEach((el, i) => {
+      const isCurrent = i === currentLineIndex;
+      const isPast = i < currentLineIndex;
+      const distance = isPast ? currentLineIndex - i : i - currentLineIndex;
+      const opacity = isCurrent ? 1 : Math.max(0.15, 1 - distance * 0.15);
+
+      el.style.opacity = String(opacity);
+      el.style.color = isCurrent
+        ? "var(--now-playing)"
+        : "var(--text-muted)";
+      el.style.fontWeight = isCurrent ? "600" : "400";
+    });
+  }, [currentLineIndex, lyrics.synced]);
+
+  const setLineRef = useCallback((i: number, el: HTMLDivElement | null) => {
+    if (el) lineRefs.current.set(i, el);
+    else lineRefs.current.delete(i);
+  }, []);
+
+  if (!hasSynced && lyrics.plain) {
+    return (
+      <div className={styles.lyricsColumn}>
+        <div className={styles.lyricsScroll} ref={scrollRef}>
+          <div className={styles.plainLyrics}>
+            {lyrics.plain.split("\n").map((line, i) => (
+              <p key={i} className={styles.plainLine}>{line || "\u00A0"}</p>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!lyrics.synced) return null;
+
+  return (
+    <div className={styles.lyricsColumn}>
+      <div className={styles.lyricsScroll} ref={scrollRef}>
+        <div className={styles.syncedLyrics}>
+          <div className={styles.lyricsPadTop} />
+          {lyrics.synced.map((line, i) => (
+            <div
+              key={i}
+              ref={(el) => setLineRef(i, el)}
+              className={styles.lyricsLine}
+              onClick={() => onSeek(line.timeMs)}
+            >
+              {line.text || "· · ·"}
+            </div>
+          ))}
+          <div className={styles.lyricsPadBottom} />
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// ── Main NowPlaying ──
 
 export function NowPlaying() {
   const {
@@ -36,10 +164,7 @@ export function NowPlaying() {
   const [artLoaded, setArtLoaded] = useState(false);
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null);
   const lastPathRef = useRef<string | null>(null);
-  const lyricsRef = useRef<HTMLDivElement>(null);
-  const activeLineRef = useRef<HTMLDivElement>(null);
 
-  // Fetch art + lyrics on track change
   useEffect(() => {
     if (currentTrack === lastPathRef.current) return;
     lastPathRef.current = currentTrack;
@@ -56,80 +181,13 @@ export function NowPlaying() {
     if (trackMeta?.title && trackMeta?.artist) {
       const dur = trackMeta.durationMs ? trackMeta.durationMs / 1000 : durationSecs;
       commands
-        .fetchLyrics(
-          trackMeta.title,
-          trackMeta.artist,
-          trackMeta.album ?? "",
-          dur
-        )
+        .fetchLyrics(trackMeta.title, trackMeta.artist, trackMeta.album ?? "", dur)
         .then((result) => {
           if (lastPathRef.current === currentTrack) setLyrics(result);
         })
         .catch(() => {});
     }
   }, [currentTrack, tracks, durationSecs]);
-
-  // Find current synced line
-  const currentLineIndex = useMemo(() => {
-    if (!lyrics?.synced) return -1;
-    const posMs = positionSecs * 1000;
-    let idx = -1;
-    for (let i = 0; i < lyrics.synced.length; i++) {
-      if (lyrics.synced[i].timeMs <= posMs) idx = i;
-      else break;
-    }
-    return idx;
-  }, [lyrics?.synced, positionSecs]);
-
-  // Smooth scroll with requestAnimationFrame
-  const scrollAnimRef = useRef<number>(0);
-
-  useEffect(() => {
-    const container = lyricsRef.current;
-    const activeLine = activeLineRef.current;
-    if (!container || !activeLine) return;
-
-    // Target: center the active line in the container
-    const containerRect = container.getBoundingClientRect();
-    const lineRect = activeLine.getBoundingClientRect();
-    const targetScroll =
-      container.scrollTop +
-      (lineRect.top - containerRect.top) -
-      containerRect.height / 2 +
-      lineRect.height / 2;
-
-    const startScroll = container.scrollTop;
-    const distance = targetScroll - startScroll;
-
-    if (Math.abs(distance) < 2) return;
-
-    const duration = 400;
-    let startTime: number | null = null;
-
-    // Cancel any in-flight animation
-    if (scrollAnimRef.current) cancelAnimationFrame(scrollAnimRef.current);
-
-    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-
-    const step = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const elapsed = timestamp - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = easeOutCubic(progress);
-
-      container.scrollTop = startScroll + distance * eased;
-
-      if (progress < 1) {
-        scrollAnimRef.current = requestAnimationFrame(step);
-      }
-    };
-
-    scrollAnimRef.current = requestAnimationFrame(step);
-
-    return () => {
-      if (scrollAnimRef.current) cancelAnimationFrame(scrollAnimRef.current);
-    };
-  }, [currentLineIndex]);
 
   const handleSeek = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => seek(parseFloat(e.target.value)),
@@ -138,6 +196,10 @@ export function NowPlaying() {
   const handleVolume = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => setVolume(parseFloat(e.target.value)),
     [setVolume]
+  );
+  const handleLyricSeek = useCallback(
+    (timeMs: number) => seek(timeMs / 1000),
+    [seek]
   );
 
   const title = meta?.title ?? extractFileName(currentTrack);
@@ -151,11 +213,6 @@ export function NowPlaying() {
   const progress = durationSecs > 0 ? (positionSecs / durationSecs) * 100 : 0;
 
   const hasLyrics = !!(lyrics?.synced || lyrics?.plain);
-  const hasSynced = !!lyrics?.synced;
-
-  const handleLyricClick = (line: LyricsLine) => {
-    seek(line.timeMs / 1000);
-  };
 
   return (
     <div className={styles.screen}>
@@ -166,7 +223,6 @@ export function NowPlaying() {
       </button>
 
       <div className={styles.layout}>
-        {/* Player column */}
         <div className={`${styles.playerColumn} ${hasLyrics ? styles.playerColumnWithLyrics : ""}`}>
           <div className={`${styles.artFrame} ${hasLyrics ? styles.artFrameSmall : ""}`}>
             {art ? (
@@ -257,47 +313,8 @@ export function NowPlaying() {
           {techInfo && <p className={styles.techInfo}>{techInfo}</p>}
         </div>
 
-        {/* Lyrics column */}
-        {hasLyrics && (
-          <div className={styles.lyricsColumn}>
-            <div className={styles.lyricsScroll} ref={lyricsRef}>
-              {hasSynced ? (
-                <div className={styles.syncedLyrics}>
-                  <div className={styles.lyricsPadTop} />
-                  {lyrics!.synced!.map((line, i) => {
-                    const isCurrent = i === currentLineIndex;
-                    const isPast = i < currentLineIndex;
-                    const distance = isPast ? currentLineIndex - i : i - currentLineIndex;
-
-                    return (
-                      <div
-                        key={i}
-                        ref={isCurrent ? activeLineRef : undefined}
-                        className={`${styles.lyricsLine} ${isCurrent ? styles.lyricsLineCurrent : ""} ${isPast ? styles.lyricsLinePast : ""}`}
-                        style={
-                          !isCurrent
-                            ? ({ "--dist-opacity": Math.max(0.15, 1 - distance * 0.18) } as React.CSSProperties)
-                            : undefined
-                        }
-                        onClick={() => handleLyricClick(line)}
-                      >
-                        {line.text || "· · ·"}
-                      </div>
-                    );
-                  })}
-                  <div className={styles.lyricsPadBottom} />
-                </div>
-              ) : (
-                <div className={styles.plainLyrics}>
-                  {lyrics!.plain!.split("\n").map((line, i) => (
-                    <p key={i} className={styles.plainLine}>
-                      {line || "\u00A0"}
-                    </p>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+        {lyrics && hasLyrics && (
+          <LyricsPanel lyrics={lyrics} onSeek={handleLyricSeek} />
         )}
       </div>
     </div>
