@@ -167,10 +167,6 @@ export const commands = {
     invoke("remove_tracks_from_playlist", { playlistId, trackIds }),
   reorderPlaylistTracks: (playlistId: number, trackIds: number[]) =>
     invoke("reorder_playlist_tracks", { playlistId, trackIds }),
-  setPlaylistCover: (id: number, trackPath: string) =>
-    invoke<Playlist>("set_playlist_cover", { id, trackPath }),
-  clearPlaylistCover: (id: number) =>
-    invoke<Playlist>("clear_playlist_cover", { id }),
 
   getAlbumArt: (path: string) =>
     invoke<AlbumArt | null>("get_album_art", { path }),

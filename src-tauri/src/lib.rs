@@ -123,8 +123,6 @@ pub fn run() {
             commands::playlist::toggle_playlist_pin,
             commands::playlist::remove_tracks_from_playlist,
             commands::playlist::reorder_playlist_tracks,
-            commands::playlist::set_playlist_cover,
-            commands::playlist::clear_playlist_cover,
             commands::tags::get_album_art,
             commands::tags::read_tags,
             commands::tags::write_tags,

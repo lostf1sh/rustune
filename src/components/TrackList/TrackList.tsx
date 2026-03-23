@@ -3,7 +3,6 @@ import { useLibraryStore } from "../../stores/libraryStore";
 import { usePlayerStore } from "../../stores/playerStore";
 import { usePlaylistStore } from "../../stores/playlistStore";
 import { TagEditor } from "../TagEditor/TagEditor";
-import { PlaylistCover } from "../PlaylistCover/PlaylistCover";
 import { useSelectionStore } from "../../stores/selectionStore";
 import { commands, type Track } from "../../lib/commands";
 import styles from "./TrackList.module.css";
@@ -87,8 +86,6 @@ export function TrackList() {
     setPlaylistSearchQuery,
     removeTracksFromPlaylist,
     reorderPlaylistTracks,
-    setPlaylistCover,
-    clearPlaylistCover,
   } = usePlaylistStore();
 
   const selection = useSelectionStore();
@@ -381,24 +378,8 @@ export function TrackList() {
       <div className={styles.header}>
         {isPlaylistView && activePlaylist ? (
           <div className={styles.playlistHeaderWrap}>
-            <div className={styles.playlistHeaderContent}>
-              <div className={styles.playlistCoverWrap}>
-                <PlaylistCover
-                  coverTrackPath={activePlaylist.coverTrackPath}
-                  tracks={activePlaylistTracks}
-                  size={100}
-                />
-                {activePlaylist.coverTrackPath && (
-                  <button
-                    className={styles.clearCoverBtn}
-                    onClick={() => clearPlaylistCover(activePlaylist.id)}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              <div className={styles.playlistHeaderMeta}>
-                <div className={styles.playlistTitleRow}>
+            <div className={styles.playlistHeader}>
+              <div className={styles.playlistTitleRow}>
                 {editingTitle ? (
                   <input
                     ref={titleInputRef}
@@ -466,7 +447,6 @@ export function TrackList() {
                 {activePlaylistTracks.length > 0 && ` · ${formatTotalDuration(activePlaylistTracks)}`}
                 {activePlaylist.updatedAt && ` · Updated ${timeAgo(activePlaylist.updatedAt)}`}
               </span>
-              </div>
             </div>
 
             {/* Playlist search */}
@@ -687,20 +667,6 @@ export function TrackList() {
           >
             Edit Tags
           </button>
-          {isPlaylistView && activePlaylistId && (
-            <>
-              <div className={styles.contextDivider} />
-              <button
-                className={styles.contextItem}
-                onClick={() => {
-                  setPlaylistCover(activePlaylistId, contextMenu.trackPath);
-                  setContextMenu(null);
-                }}
-              >
-                Set as Playlist Cover
-              </button>
-            </>
-          )}
         </div>
       )}
 

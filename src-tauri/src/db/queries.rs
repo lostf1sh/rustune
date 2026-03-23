@@ -763,24 +763,6 @@ pub fn remove_tracks_from_playlist(
     Ok(())
 }
 
-pub fn set_playlist_cover(conn: &Connection, id: i64, track_path: &str) -> Result<Playlist, String> {
-    conn.execute(
-        "UPDATE playlists SET cover_track_path = ?1, updated_at = datetime('now') WHERE id = ?2",
-        params![track_path, id],
-    )
-    .map_err(|e| e.to_string())?;
-    get_playlist(conn, id)
-}
-
-pub fn clear_playlist_cover(conn: &Connection, id: i64) -> Result<Playlist, String> {
-    conn.execute(
-        "UPDATE playlists SET cover_track_path = NULL, updated_at = datetime('now') WHERE id = ?1",
-        params![id],
-    )
-    .map_err(|e| e.to_string())?;
-    get_playlist(conn, id)
-}
-
 pub fn reorder_playlist_tracks(
     conn: &Connection,
     playlist_id: i64,
