@@ -7,9 +7,13 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          'virtual': ['@tanstack/react-virtual'],
+        manualChunks(id) {
+          if (id.includes('react-dom') || id.includes('react')) {
+            return 'react-vendor'
+          }
+          if (id.includes('@tanstack/react-virtual')) {
+            return 'virtual'
+          }
         },
       },
     },
