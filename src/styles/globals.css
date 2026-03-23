@@ -51,6 +51,23 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Editable fields must still allow selection / caret */
+input:where(
+    :not([type]),
+    [type="text"],
+    [type="search"],
+    [type="number"],
+    [type="password"],
+    [type="email"],
+    [type="url"]
+  ),
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 #root[data-compact="true"] {
