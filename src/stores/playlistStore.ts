@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { commands, type Playlist, type Track } from "../lib/commands";
+import { useSelectionStore } from "./selectionStore";
 
 export type ViewMode = "library" | "playlist" | "artists" | "albums" | "favorites" | "recentPlays" | "settings";
 
@@ -42,6 +43,7 @@ interface PlaylistStore {
   togglePlaylistPin: (id: number) => Promise<void>;
   playlistSearchQuery: string;
   setPlaylistSearchQuery: (query: string) => void;
+  removeTracksFromPlaylist: (playlistId: number, trackIds: number[]) => Promise<void>;
 }
 
 const clearBrowseState = {
@@ -54,6 +56,8 @@ const clearBrowseState = {
   favoriteTracks: [] as Track[],
   recentTracks: [] as Track[],
 };
+
+const clearSelection = () => useSelectionStore.getState().clearSelection();
 
 export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   playlists: [],
@@ -111,15 +115,18 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   },
 
   viewPlaylist: async (id: number) => {
+    clearSelection();
     const tracks = await commands.getPlaylistTracks(id);
     set({ viewMode: "playlist", ...clearBrowseState, activePlaylistId: id, activePlaylistTracks: tracks });
   },
 
   viewLibrary: () => {
+    clearSelection();
     set({ viewMode: "library", ...clearBrowseState });
   },
 
   viewArtists: () => {
+    clearSelection();
     set({ viewMode: "artists", ...clearBrowseState });
   },
 
@@ -129,6 +136,7 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   },
 
   viewAlbums: () => {
+    clearSelection();
     set({ viewMode: "albums", ...clearBrowseState });
   },
 
@@ -210,5 +218,14 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
 
   setPlaylistSearchQuery: (query) => {
     set({ playlistSearchQuery: query });
+  },
+
+  removeTracksFromPlaylist: async (playlistId, trackIds) => {
+    await commands.removeTracksFromPlaylist(playlistId, trackIds);
+    await get().loadPlaylists();
+    if (get().activePlaylistId === playlistId) {
+      const tracks = await commands.getPlaylistTracks(playlistId);
+      set({ activePlaylistTracks: tracks });
+    }
   },
 }));

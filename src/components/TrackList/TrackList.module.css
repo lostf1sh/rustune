@@ -152,6 +152,62 @@
   background: rgba(200, 155, 60, 0.12);
 }
 
+.row.selected {
+  background: var(--surface-2);
+  border-left: 2px solid var(--now-playing);
+}
+
+.row.selected:hover {
+  background: var(--surface-3);
+}
+
+/* Selection toolbar */
+.selectionBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 20px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  animation: fadeIn 0.15s var(--ease-out);
+}
+
+.selectionCount {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--now-playing);
+  font-variant-numeric: tabular-nums;
+}
+
+.selectionLabel {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-right: auto;
+}
+
+.selectionActions {
+  display: flex;
+  gap: 2px;
+}
+
+.selectionBtn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: inherit;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.selectionBtn:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
 /* Cells */
 .cellNum {
   width: 56px;

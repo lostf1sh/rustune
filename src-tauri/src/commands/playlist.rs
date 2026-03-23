@@ -71,3 +71,13 @@ pub fn toggle_playlist_pin(id: i64, db: State<'_, DbConn>) -> Result<Playlist, S
     let conn = db.lock().map_err(|e| e.to_string())?;
     queries::toggle_playlist_pin(&conn, id)
 }
+
+#[tauri::command]
+pub fn remove_tracks_from_playlist(
+    playlist_id: i64,
+    track_ids: Vec<i64>,
+    db: State<'_, DbConn>,
+) -> Result<(), String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    queries::remove_tracks_from_playlist(&conn, playlist_id, &track_ids)
+}
