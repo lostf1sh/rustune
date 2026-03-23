@@ -44,6 +44,7 @@ interface PlaylistStore {
   playlistSearchQuery: string;
   setPlaylistSearchQuery: (query: string) => void;
   removeTracksFromPlaylist: (playlistId: number, trackIds: number[]) => Promise<void>;
+  reorderPlaylistTracks: (playlistId: number, trackIds: number[]) => Promise<void>;
 }
 
 const clearBrowseState = {
@@ -224,6 +225,22 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
     await commands.removeTracksFromPlaylist(playlistId, trackIds);
     await get().loadPlaylists();
     if (get().activePlaylistId === playlistId) {
+      const tracks = await commands.getPlaylistTracks(playlistId);
+      set({ activePlaylistTracks: tracks });
+    }
+  },
+
+  reorderPlaylistTracks: async (playlistId, trackIds) => {
+    // Optimistic update
+    const reordered = trackIds
+      .map((id) => get().activePlaylistTracks.find((t) => t.id === id))
+      .filter(Boolean) as Track[];
+    set({ activePlaylistTracks: reordered });
+
+    try {
+      await commands.reorderPlaylistTracks(playlistId, trackIds);
+    } catch {
+      // Rollback on error
       const tracks = await commands.getPlaylistTracks(playlistId);
       set({ activePlaylistTracks: tracks });
     }

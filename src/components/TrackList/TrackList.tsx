@@ -85,9 +85,15 @@ export function TrackList() {
     playlistSearchQuery,
     setPlaylistSearchQuery,
     removeTracksFromPlaylist,
+    reorderPlaylistTracks,
   } = usePlaylistStore();
 
   const selection = useSelectionStore();
+
+  // Drag-drop reorder state
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const tableRef = useRef<HTMLTableSectionElement>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -219,6 +225,53 @@ export function TrackList() {
     } else {
       selection.select(track.id, index);
     }
+  };
+
+  const canDrag = isPlaylistView && !playlistSearchQuery;
+
+  const handleDragStart = (e: React.PointerEvent, index: number) => {
+    if (!canDrag || e.button !== 0) return;
+    const startY = e.clientY;
+    let dragging = false;
+
+    const onMove = (me: PointerEvent) => {
+      if (!dragging && Math.abs(me.clientY - startY) > 5) {
+        dragging = true;
+        selection.clearSelection();
+        setDragIndex(index);
+      }
+      if (dragging && tableRef.current) {
+        const rows = tableRef.current.querySelectorAll("tr");
+        let closest = index;
+        let minDist = Infinity;
+        rows.forEach((row, i) => {
+          const rect = row.getBoundingClientRect();
+          const mid = rect.top + rect.height / 2;
+          const dist = Math.abs(me.clientY - mid);
+          if (dist < minDist) {
+            minDist = dist;
+            closest = i;
+          }
+        });
+        setDropIndex(closest);
+      }
+    };
+
+    const onUp = () => {
+      if (dragging && dragIndex !== null && dropIndex !== null && dragIndex !== dropIndex && activePlaylistId) {
+        const newOrder = [...displayTracks];
+        const [moved] = newOrder.splice(dragIndex, 1);
+        newOrder.splice(dropIndex, 0, moved);
+        reorderPlaylistTracks(activePlaylistId, newOrder.map((t) => t.id));
+      }
+      setDragIndex(null);
+      setDropIndex(null);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   };
 
   const handleBulkRemove = async () => {
@@ -493,17 +546,20 @@ export function TrackList() {
               {isPlaylistView && <th className={styles.thAction} />}
             </tr>
           </thead>
-          <tbody>
+          <tbody ref={tableRef}>
               {displayTracks.map((track, i) => {
                 const isCurrent = currentTrack === track.path;
                 const isFav = track.favorite;
+                const isDragging = dragIndex === i;
+                const isDropTarget = dropIndex === i && dragIndex !== null && dragIndex !== i;
               return (
                 <tr
                   key={`${track.id}-${i}`}
-                  className={`${styles.row} ${isCurrent ? styles.playing : ""} ${isPlaylistView && selection.isSelected(track.id) ? styles.selected : ""}`}
+                  className={`${styles.row} ${isCurrent ? styles.playing : ""} ${isPlaylistView && selection.isSelected(track.id) ? styles.selected : ""} ${isDragging ? styles.dragging : ""} ${isDropTarget ? styles.dropTarget : ""}`}
                   onClick={(e) => handleRowClick(e, track, i)}
                   onDoubleClick={() => handlePlay(i)}
                   onContextMenu={(e) => handleContextMenu(e, track.id, track.path)}
+                  onPointerDown={(e) => handleDragStart(e, i)}
                 >
                   <td className={styles.cellNum}>
                     {isCurrent && isPlaying ? (

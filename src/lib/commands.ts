@@ -165,6 +165,8 @@ export const commands = {
     invoke<Playlist>("toggle_playlist_pin", { id }),
   removeTracksFromPlaylist: (playlistId: number, trackIds: number[]) =>
     invoke("remove_tracks_from_playlist", { playlistId, trackIds }),
+  reorderPlaylistTracks: (playlistId: number, trackIds: number[]) =>
+    invoke("reorder_playlist_tracks", { playlistId, trackIds }),
 
   getAlbumArt: (path: string) =>
     invoke<AlbumArt | null>("get_album_art", { path }),
