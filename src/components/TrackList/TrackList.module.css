@@ -162,15 +162,6 @@
 }
 
 /* Selection toolbar */
-/* Drag-drop reorder */
-.dragging {
-  opacity: 0.4;
-}
-
-.dropTarget {
-  box-shadow: 0 -2px 0 0 var(--now-playing);
-}
-
 .selectionBar {
   display: flex;
   align-items: center;

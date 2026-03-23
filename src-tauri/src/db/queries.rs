@@ -763,35 +763,6 @@ pub fn remove_tracks_from_playlist(
     Ok(())
 }
 
-pub fn reorder_playlist_tracks(
-    conn: &Connection,
-    playlist_id: i64,
-    track_ids: Vec<i64>,
-) -> Result<(), String> {
-    conn.execute(
-        "DELETE FROM playlist_tracks WHERE playlist_id = ?1",
-        params![playlist_id],
-    )
-    .map_err(|e| e.to_string())?;
-
-    let mut stmt = conn
-        .prepare("INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?1, ?2, ?3)")
-        .map_err(|e| e.to_string())?;
-
-    for (i, track_id) in track_ids.iter().enumerate() {
-        stmt.execute(params![playlist_id, track_id, i as i64])
-            .map_err(|e| e.to_string())?;
-    }
-
-    conn.execute(
-        "UPDATE playlists SET updated_at = datetime('now') WHERE id = ?1",
-        params![playlist_id],
-    )
-    .map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
 pub fn get_playlist_tracks(conn: &Connection, playlist_id: i64) -> Result<Vec<Track>, String> {
     let mut stmt = conn
         .prepare(

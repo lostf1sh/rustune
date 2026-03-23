@@ -81,13 +81,3 @@ pub fn remove_tracks_from_playlist(
     let conn = db.lock().map_err(|e| e.to_string())?;
     queries::remove_tracks_from_playlist(&conn, playlist_id, &track_ids)
 }
-
-#[tauri::command]
-pub fn reorder_playlist_tracks(
-    playlist_id: i64,
-    track_ids: Vec<i64>,
-    db: State<'_, DbConn>,
-) -> Result<(), String> {
-    let conn = db.lock().map_err(|e| e.to_string())?;
-    queries::reorder_playlist_tracks(&conn, playlist_id, track_ids)
-}
