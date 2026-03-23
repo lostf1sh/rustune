@@ -87,5 +87,4 @@ jobs:
             Commit: ${{ github.sha }}
           releaseDraft: ${{ inputs.draft }}
           prerelease: ${{ inputs.prerelease }}
-          tauriScript: npm exec -- tauri
           args: ${{ matrix.args }}
