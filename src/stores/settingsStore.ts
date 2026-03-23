@@ -19,6 +19,7 @@ const defaults: AppSettings = {
   compactMode: false,
   showQueueBadge: true,
   customArtistSeparators: [],
+  theme: "default",
 };
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({

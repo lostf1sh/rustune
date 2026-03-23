@@ -163,7 +163,7 @@
 
 .saveBtn {
   background: var(--now-playing);
-  color: #080808;
+  color: var(--on-accent);
 }
 
 .saveBtn:hover:not(:disabled) {

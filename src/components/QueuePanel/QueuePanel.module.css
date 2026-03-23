@@ -146,7 +146,7 @@
 }
 
 .itemActive:hover {
-  background: rgba(200, 155, 60, 0.12);
+  background: var(--now-playing-hover);
 }
 
 /* Index */

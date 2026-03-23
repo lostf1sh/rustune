@@ -25,6 +25,12 @@ pub struct AppSettings {
     pub show_queue_badge: bool,
     #[serde(default = "default_custom_artist_separators")]
     pub custom_artist_separators: Vec<String>,
+    #[serde(default = "default_theme")]
+    pub theme: String,
+}
+
+fn default_theme() -> String {
+    "default".to_string()
 }
 
 fn default_true() -> bool {
@@ -46,6 +52,7 @@ impl Default for AppSettings {
             compact_mode: false,
             show_queue_badge: true,
             custom_artist_separators: Vec::new(),
+            theme: "default".to_string(),
         }
     }
 }

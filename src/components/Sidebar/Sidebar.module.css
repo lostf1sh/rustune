@@ -19,7 +19,7 @@
   width: 24px;
   height: 24px;
   background: var(--now-playing);
-  color: #080808;
+  color: var(--on-accent);
   font-weight: 700;
   font-size: 13px;
   display: flex;

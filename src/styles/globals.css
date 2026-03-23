@@ -16,6 +16,10 @@
 
   --now-playing: #c89b3c;
   --now-playing-dim: rgba(200, 155, 60, 0.08);
+  --now-playing-hover: rgba(200, 155, 60, 0.12);
+  --now-playing-glow: rgba(200, 155, 60, 0.06);
+  --on-accent: #080808;
+  --separator: rgba(255, 255, 255, 0.03);
 
   --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -33,6 +37,15 @@
 
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+:root.theme-transition,
+:root.theme-transition *,
+:root.theme-transition *::before,
+:root.theme-transition *::after {
+  transition: background-color 300ms ease, color 300ms ease,
+    border-color 300ms ease, box-shadow 300ms ease, fill 300ms ease,
+    stroke 300ms ease !important;
 }
 
 *,
@@ -110,5 +123,5 @@ textarea {
 
 @keyframes pulseGlow {
   0%, 100% { box-shadow: inset 0 0 0 0 transparent; }
-  50% { box-shadow: inset 0 0 12px -4px rgba(200, 155, 60, 0.06); }
+  50% { box-shadow: inset 0 0 12px -4px var(--now-playing-glow); }
 }

@@ -53,7 +53,7 @@
 }
 
 .row + .row {
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  border-top: 1px solid var(--separator);
 }
 
 .columnRow {
@@ -66,7 +66,7 @@
 .row + .columnRow,
 .columnRow + .row,
 .columnRow + .columnRow {
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  border-top: 1px solid var(--separator);
 }
 
 .rowInfo {
@@ -113,7 +113,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #080808;
+  background: var(--on-accent);
   transition: transform 0.2s var(--ease-out);
 }
 
@@ -194,6 +194,56 @@
   background: var(--now-playing);
   border: none;
   cursor: pointer;
+}
+
+/* ── Theme grid ── */
+.themeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.themeSwatch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid var(--surface-3);
+  background: var(--surface-1);
+  cursor: pointer;
+  transition: border-color 0.15s;
+  font-family: inherit;
+}
+
+.themeSwatch:hover {
+  border-color: var(--text-muted);
+}
+
+.themeSwatchActive {
+  border-color: var(--now-playing);
+}
+
+.swatchColors {
+  display: flex;
+  gap: 3px;
+  height: 16px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.swatchColors span {
+  flex: 1;
+  border-radius: 2px;
+}
+
+.swatchLabel {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Reset ── */

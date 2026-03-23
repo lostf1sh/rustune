@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useSettingsStore } from "../../stores/settingsStore";
+import { themes } from "../../lib/themes";
 import styles from "./SettingsView.module.css";
 
 function Toggle({
@@ -173,6 +174,34 @@ export function SettingsView() {
           {/* Appearance */}
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>Appearance</h2>
+            <div className={styles.columnRow}>
+              <div className={styles.rowInfo}>
+                <span className={styles.label}>Theme</span>
+                <span className={styles.desc}>
+                  Choose a color scheme for the interface
+                </span>
+              </div>
+              <div className={styles.themeGrid}>
+                {themes.map((theme) => (
+                  <button
+                    key={theme.id}
+                    className={`${styles.themeSwatch} ${
+                      settings.theme === theme.id ? styles.themeSwatchActive : ""
+                    }`}
+                    onClick={() => updateSettings({ theme: theme.id })}
+                    title={theme.name}
+                  >
+                    <div className={styles.swatchColors}>
+                      <span style={{ background: theme.colors.bg }} />
+                      <span style={{ background: theme.colors.surface2 }} />
+                      <span style={{ background: theme.colors.nowPlaying }} />
+                      <span style={{ background: theme.colors.textPrimary }} />
+                    </div>
+                    <span className={styles.swatchLabel}>{theme.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className={styles.row}>
               <div className={styles.rowInfo}>
                 <span className={styles.label}>Compact mode</span>
