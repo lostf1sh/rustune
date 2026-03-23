@@ -250,10 +250,11 @@
   width: 72px;
   text-align: right !important;
   padding-right: 20px !important;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
+}
+
+.thDuration svg {
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .row {
@@ -357,6 +358,41 @@
 @keyframes contextIn {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 1180px) {
+  .thArtist,
+  .cellArtist {
+    display: none;
+  }
+}
+
+@media (max-width: 960px) {
+  .albumInfo {
+    gap: 14px;
+    padding: 14px 16px 18px;
+  }
+
+  .detailArt {
+    width: 124px;
+    height: 124px;
+  }
+
+  .albumTitle {
+    font-size: 18px;
+  }
+
+  .thNum,
+  .cellNum {
+    width: 44px;
+    padding-left: 12px !important;
+  }
+
+  .thDuration,
+  .cellDuration {
+    width: 64px;
+    padding-right: 12px !important;
+  }
 }
 
 .contextLabel {
