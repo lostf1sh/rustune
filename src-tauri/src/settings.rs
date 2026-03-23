@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+
+fn default_custom_artist_separators() -> Vec<String> {
+    Vec::new()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,6 +23,8 @@ pub struct AppSettings {
     pub compact_mode: bool,
     #[serde(default = "default_true")]
     pub show_queue_badge: bool,
+    #[serde(default = "default_custom_artist_separators")]
+    pub custom_artist_separators: Vec<String>,
 }
 
 fn default_true() -> bool {
@@ -39,11 +45,12 @@ impl Default for AppSettings {
             default_volume: 1.0,
             compact_mode: false,
             show_queue_badge: true,
+            custom_artist_separators: Vec::new(),
         }
     }
 }
 
-pub type SettingsState = Mutex<(AppSettings, PathBuf)>;
+pub type SettingsState = Arc<Mutex<(AppSettings, PathBuf)>>;
 
 pub fn load_settings(app_data_dir: &Path) -> (AppSettings, PathBuf) {
     let config_path = app_data_dir.join("settings.json");
@@ -86,4 +93,10 @@ pub fn save_settings(state: &SettingsState) -> Result<(), String> {
 
 pub fn validate_settings(settings: &mut AppSettings) {
     settings.default_volume = settings.default_volume.clamp(0.0, 1.0);
+    settings.custom_artist_separators = settings
+        .custom_artist_separators
+        .iter()
+        .filter(|sep| !sep.trim().is_empty())
+        .cloned()
+        .collect();
 }

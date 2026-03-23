@@ -12,6 +12,7 @@ function formatTime(secs: number): string {
 }
 
 export function PlayerBar() {
+  const showQueueBadge = useSettingsStore((s) => s.settings.showQueueBadge);
   const {
     isPlaying,
     currentTrack,
@@ -276,7 +277,7 @@ export function PlayerBar() {
             <path d="M2 4h9M2 8h7M2 12h5" />
             <path d="M12 7v6M9 10h6" />
           </svg>
-          {queue.length > 0 && !queueOpen && useSettingsStore.getState().settings.showQueueBadge && (
+          {queue.length > 0 && !queueOpen && showQueueBadge && (
             <span className={styles.queueBadge}>{queue.length}</span>
           )}
         </button>

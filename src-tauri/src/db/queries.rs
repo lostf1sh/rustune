@@ -74,7 +74,12 @@ pub fn upsert_track(conn: &Connection, track: &InsertTrack) -> Result<i64, Strin
     )
     .map_err(|e| format!("Failed to insert track: {}", e))?;
 
-    Ok(conn.last_insert_rowid())
+    conn.query_row(
+        "SELECT id FROM tracks WHERE path = ?1",
+        params![track.path],
+        |row| row.get(0),
+    )
+    .map_err(|e| format!("Failed to fetch track id: {}", e))
 }
 
 fn row_to_track(row: &rusqlite::Row) -> rusqlite::Result<Track> {
@@ -236,9 +241,16 @@ pub fn delete_library_root(conn: &Connection, path: &str) -> Result<(), String> 
 
 // ── Track artists queries ──
 
-pub fn upsert_track_artists(conn: &Connection, track_id: i64, artists: &[String]) -> Result<(), String> {
-    conn.execute("DELETE FROM track_artists WHERE track_id = ?1", params![track_id])
-        .map_err(|e| e.to_string())?;
+pub fn upsert_track_artists(
+    conn: &Connection,
+    track_id: i64,
+    artists: &[String],
+) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM track_artists WHERE track_id = ?1",
+        params![track_id],
+    )
+    .map_err(|e| e.to_string())?;
 
     let mut stmt = conn
         .prepare("INSERT OR IGNORE INTO track_artists (track_id, artist_name) VALUES (?1, ?2)")
@@ -247,7 +259,8 @@ pub fn upsert_track_artists(conn: &Connection, track_id: i64, artists: &[String]
     for artist in artists {
         let trimmed = artist.trim();
         if !trimmed.is_empty() {
-            stmt.execute(params![track_id, trimmed]).map_err(|e| e.to_string())?;
+            stmt.execute(params![track_id, trimmed])
+                .map_err(|e| e.to_string())?;
         }
     }
 
@@ -392,7 +405,11 @@ pub fn toggle_favorite(conn: &Connection, track_id: i64) -> Result<bool, String>
     .map_err(|e| e.to_string())?;
 
     let new_val: i32 = conn
-        .query_row("SELECT COALESCE(favorite, 0) FROM tracks WHERE id = ?1", params![track_id], |r| r.get(0))
+        .query_row(
+            "SELECT COALESCE(favorite, 0) FROM tracks WHERE id = ?1",
+            params![track_id],
+            |r| r.get(0),
+        )
         .map_err(|e| e.to_string())?;
 
     Ok(new_val != 0)
@@ -466,7 +483,10 @@ pub struct CachedLyrics {
     pub plain_lyrics: Option<String>,
 }
 
-pub fn get_cached_lyrics(conn: &Connection, track_path: &str) -> Result<Option<CachedLyrics>, String> {
+pub fn get_cached_lyrics(
+    conn: &Connection,
+    track_path: &str,
+) -> Result<Option<CachedLyrics>, String> {
     let mut stmt = conn
         .prepare("SELECT synced_lyrics, plain_lyrics FROM lyrics_cache WHERE track_path = ?1")
         .map_err(|e| e.to_string())?;
@@ -499,14 +519,19 @@ pub fn cache_lyrics(
 }
 
 /// Backfill track_artists for existing tracks that don't have entries yet.
-pub fn backfill_track_artists(conn: &Connection) -> Result<(), String> {
+pub fn rebuild_track_artists(
+    conn: &Connection,
+    settings: &crate::settings::AppSettings,
+) -> Result<(), String> {
     use crate::library::artists::parse_artists;
+
+    conn.execute("DELETE FROM track_artists", [])
+        .map_err(|e| e.to_string())?;
 
     let mut stmt = conn
         .prepare(
             "SELECT t.id, t.artist, t.album_artist FROM tracks t
-             WHERE t.id NOT IN (SELECT DISTINCT track_id FROM track_artists)
-               AND (t.artist IS NOT NULL OR t.album_artist IS NOT NULL)",
+             WHERE t.artist IS NOT NULL OR t.album_artist IS NOT NULL",
         )
         .map_err(|e| e.to_string())?;
 
@@ -520,7 +545,7 @@ pub fn backfill_track_artists(conn: &Connection) -> Result<(), String> {
         return Ok(());
     }
 
-    log::info!("Backfilling track_artists for {} tracks", rows.len());
+    log::info!("Rebuilding track_artists for {} tracks", rows.len());
 
     let mut insert_stmt = conn
         .prepare("INSERT OR IGNORE INTO track_artists (track_id, artist_name) VALUES (?1, ?2)")
@@ -529,22 +554,31 @@ pub fn backfill_track_artists(conn: &Connection) -> Result<(), String> {
     for (track_id, artist, album_artist) in &rows {
         let mut all_artists = Vec::new();
         if let Some(a) = artist {
-            all_artists.extend(parse_artists(a));
+            all_artists.extend(parse_artists(a, settings));
         }
         if let Some(aa) = album_artist {
-            all_artists.extend(parse_artists(aa));
+            all_artists.extend(parse_artists(aa, settings));
         }
         // Deduplicate
         let mut seen = std::collections::HashSet::new();
         for name in &all_artists {
             let key = name.to_lowercase();
             if seen.insert(key) && !name.trim().is_empty() {
-                insert_stmt.execute(params![track_id, name.trim()]).map_err(|e| e.to_string())?;
+                insert_stmt
+                    .execute(params![track_id, name.trim()])
+                    .map_err(|e| e.to_string())?;
             }
         }
     }
 
     Ok(())
+}
+
+pub fn backfill_track_artists(
+    conn: &Connection,
+    settings: &crate::settings::AppSettings,
+) -> Result<(), String> {
+    rebuild_track_artists(conn, settings)
 }
 
 // ── Playlist queries ──

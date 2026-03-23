@@ -55,13 +55,13 @@ export function TrackList() {
     playlists,
     addTracksToPlaylist,
     removeTrackFromPlaylist,
+    refreshActiveView,
   } = usePlaylistStore();
 
   const searchRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editingPath, setEditingPath] = useState<string | null>(null);
-  const [localFavorites, setLocalFavorites] = useState<Set<number>>(new Set());
   const loadTracks = useLibraryStore((s) => s.loadTracks);
 
   const isPlaylistView = viewMode === "playlist";
@@ -80,15 +80,6 @@ export function TrackList() {
     viewMode === "favorites" ? "Favorites" :
     viewMode === "recentPlays" ? "Recently Played" :
     null;
-
-  // Sync local favorites from track data
-  useEffect(() => {
-    const favs = new Set<number>();
-    for (const t of displayTracks) {
-      if (t.favorite) favs.add(t.id);
-    }
-    setLocalFavorites(favs);
-  }, [displayTracks]);
 
   // Close context menu on click outside
   useEffect(() => {
@@ -128,13 +119,9 @@ export function TrackList() {
 
   const handleToggleFavorite = async (e: React.MouseEvent, trackId: number) => {
     e.stopPropagation();
-    const newVal = await commands.toggleFavorite(trackId);
-    setLocalFavorites((prev) => {
-      const next = new Set(prev);
-      if (newVal) next.add(trackId);
-      else next.delete(trackId);
-      return next;
-    });
+    await commands.toggleFavorite(trackId);
+    await loadTracks();
+    await refreshActiveView();
   };
 
   if (displayTracks.length === 0 && searchQuery && showSearch) {
@@ -261,9 +248,9 @@ export function TrackList() {
             </tr>
           </thead>
           <tbody>
-            {displayTracks.map((track, i) => {
-              const isCurrent = currentTrack === track.path;
-              const isFav = localFavorites.has(track.id);
+              {displayTracks.map((track, i) => {
+                const isCurrent = currentTrack === track.path;
+                const isFav = track.favorite;
               return (
                 <tr
                   key={`${track.id}-${i}`}

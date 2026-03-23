@@ -36,16 +36,21 @@ pub fn run() {
             let (app_settings, config_path) = settings::load_settings(&app_data_dir);
             let auto_watch = app_settings.auto_watch;
             let scan_on_startup = app_settings.scan_on_startup;
-            let settings_state: SettingsState = Mutex::new((app_settings, config_path));
-            app.manage(settings_state);
+            let settings_state: SettingsState =
+                Arc::new(Mutex::new((app_settings.clone(), config_path)));
+            app.manage(settings_state.clone());
 
             // Initialize database
-            let conn = db::init_db(&app_data_dir).map_err(|e| e.to_string())?;
+            let conn = db::init_db(&app_data_dir, &app_settings).map_err(|e| e.to_string())?;
             let db_conn: db::DbConn = Arc::new(Mutex::new(conn));
             app.manage(db_conn.clone());
 
             // Start library file watcher (only if autoWatch enabled)
-            let watcher = library::watcher::LibraryWatcher::new(db_conn, app.handle().clone());
+            let watcher = library::watcher::LibraryWatcher::new(
+                db_conn,
+                app.handle().clone(),
+                settings_state,
+            );
             if auto_watch {
                 if let Err(e) = watcher.watch_all_roots() {
                     log::warn!("Failed to start library watchers: {}", e);
@@ -63,7 +68,13 @@ pub fn run() {
                     drop(conn);
                     for root in roots {
                         let conn = db_for_scan.lock().unwrap();
-                        library::scanner::scan_folder(&conn, &root.path, &app_handle).ok();
+                        library::scanner::scan_folder(
+                            &conn,
+                            &root.path,
+                            &app_handle,
+                            &app_settings,
+                        )
+                        .ok();
                     }
                 });
             }
@@ -115,6 +126,7 @@ pub fn run() {
             commands::settings::get_settings,
             commands::settings::update_settings,
             commands::settings::reset_settings,
+            commands::settings::rebuild_artist_index,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

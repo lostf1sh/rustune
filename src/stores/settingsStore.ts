@@ -7,6 +7,7 @@ interface SettingsStore {
   loadSettings: () => Promise<void>;
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
   resetSettings: () => Promise<void>;
+  rebuildArtistIndex: () => Promise<void>;
 }
 
 const defaults: AppSettings = {
@@ -17,6 +18,7 @@ const defaults: AppSettings = {
   defaultVolume: 1.0,
   compactMode: false,
   showQueueBadge: true,
+  customArtistSeparators: [],
 };
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
@@ -37,5 +39,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   resetSettings: async () => {
     const saved = await commands.resetSettings();
     set({ settings: saved });
+  },
+
+  rebuildArtistIndex: async () => {
+    await commands.rebuildArtistIndex();
   },
 }));

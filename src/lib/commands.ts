@@ -99,6 +99,17 @@ export interface LibraryRoot {
   lastScannedAt: string;
 }
 
+export interface AppSettings {
+  autoWatch: boolean;
+  scanOnStartup: boolean;
+  autoFetchLyrics: boolean;
+  preferLocalLrc: boolean;
+  defaultVolume: number;
+  compactMode: boolean;
+  showQueueBadge: boolean;
+  customArtistSeparators: string[];
+}
+
 export const commands = {
   playFile: (path: string) => invoke("play_file", { path }),
   playQueue: (tracks: string[], index: number) =>
@@ -159,14 +170,5 @@ export const commands = {
   getSettings: () => invoke<AppSettings>("get_settings"),
   updateSettings: (patch: AppSettings) => invoke<AppSettings>("update_settings", { patch }),
   resetSettings: () => invoke<AppSettings>("reset_settings"),
+  rebuildArtistIndex: () => invoke("rebuild_artist_index"),
 };
-
-export interface AppSettings {
-  autoWatch: boolean;
-  scanOnStartup: boolean;
-  autoFetchLyrics: boolean;
-  preferLocalLrc: boolean;
-  defaultVolume: number;
-  compactMode: boolean;
-  showQueueBadge: boolean;
-}

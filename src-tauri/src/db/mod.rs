@@ -1,12 +1,16 @@
 pub mod queries;
 pub mod schema;
 
+use crate::settings::AppSettings;
 use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
 
 pub type DbConn = Arc<Mutex<Connection>>;
 
-pub fn init_db(app_data_dir: &std::path::Path) -> Result<Connection, String> {
+pub fn init_db(
+    app_data_dir: &std::path::Path,
+    settings: &AppSettings,
+) -> Result<Connection, String> {
     std::fs::create_dir_all(app_data_dir)
         .map_err(|e| format!("Failed to create data dir: {}", e))?;
     let db_path = app_data_dir.join("rustune.db");
@@ -15,6 +19,6 @@ pub fn init_db(app_data_dir: &std::path::Path) -> Result<Connection, String> {
         .map_err(|e| format!("Failed to set pragmas: {}", e))?;
     schema::create_tables(&conn)?;
     schema::run_migrations(&conn)?;
-    queries::backfill_track_artists(&conn)?;
+    queries::backfill_track_artists(&conn, settings)?;
     Ok(conn)
 }

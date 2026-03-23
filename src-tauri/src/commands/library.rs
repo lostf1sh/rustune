@@ -4,6 +4,7 @@ use crate::db::queries::{self, AlbumInfo, ArtistInfo, LibraryRoot, Track};
 use crate::db::DbConn;
 use crate::library::scanner;
 use crate::library::watcher::LibraryWatcher;
+use crate::settings::SettingsState;
 
 #[tauri::command]
 pub fn scan_folder(
@@ -11,12 +12,17 @@ pub fn scan_folder(
     db: State<'_, DbConn>,
     app: AppHandle,
     watcher: State<'_, LibraryWatcher>,
+    settings: State<'_, SettingsState>,
 ) -> Result<u32, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
-    let count = scanner::scan_folder(&conn, &folder, &app)?;
+    let current_settings = settings.lock().map_err(|e| e.to_string())?.0.clone();
+    let count = scanner::scan_folder(&conn, &folder, &app, &current_settings)?;
     drop(conn);
-    let root = scanner::normalize_root_path(&folder)?;
-    watcher.watch_root(&root.to_string_lossy()).ok();
+    let auto_watch = current_settings.auto_watch;
+    if auto_watch {
+        let root = scanner::normalize_root_path(&folder)?;
+        watcher.watch_root(&root.to_string_lossy()).ok();
+    }
     Ok(count)
 }
 

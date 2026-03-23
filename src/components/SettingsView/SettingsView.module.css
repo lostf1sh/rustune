@@ -56,6 +56,19 @@
   border-top: 1px solid rgba(255, 255, 255, 0.03);
 }
 
+.columnRow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.row + .columnRow,
+.columnRow + .row,
+.columnRow + .columnRow {
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+}
+
 .rowInfo {
   display: flex;
   flex-direction: column;
@@ -112,6 +125,33 @@
 .sliderWrap {
   flex-shrink: 0;
   width: 120px;
+}
+
+.select,
+.textarea {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-3);
+  color: var(--text-primary);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.select {
+  min-width: 150px;
+  padding: 7px 10px;
+}
+
+.textarea {
+  min-height: 88px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--now-playing);
 }
 
 .slider {
@@ -175,7 +215,20 @@
   transition: border-color 0.12s, color 0.12s;
 }
 
-.resetBtn:hover {
+.secondaryBtn {
+  background: none;
+  border: 1px solid var(--surface-3);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 6px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.resetBtn:hover,
+.secondaryBtn:hover {
   border-color: var(--text-muted);
   color: var(--text-secondary);
 }

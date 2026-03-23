@@ -16,14 +16,21 @@ pub async fn fetch_lyrics(
     settings: State<'_, SettingsState>,
 ) -> Result<LyricsResult, String> {
     // 1. Check for local .lrc file (if preferLocalLrc enabled)
-    let prefer_local = settings.lock().map(|s| s.0.prefer_local_lrc).unwrap_or(true);
+    let prefer_local = settings
+        .lock()
+        .map(|s| s.0.prefer_local_lrc)
+        .unwrap_or(true);
     if prefer_local {
         let lrc_path = std::path::Path::new(&track_path).with_extension("lrc");
         if lrc_path.exists() {
             if let Ok(content) = std::fs::read_to_string(&lrc_path) {
                 let synced = lrclib::parse_lrc(&content);
                 return Ok(LyricsResult {
-                    synced: if synced.is_empty() { None } else { Some(synced) },
+                    synced: if synced.is_empty() {
+                        None
+                    } else {
+                        Some(synced)
+                    },
                     plain: Some(content),
                 });
             }

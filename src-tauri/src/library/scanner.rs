@@ -11,12 +11,18 @@ use crate::db::queries::{
     upsert_track_artists, InsertTrack,
 };
 use crate::library::artists::parse_artists;
+use crate::settings::AppSettings;
 
 const SUPPORTED_EXTENSIONS: &[&str] = &[
     "mp3", "flac", "wav", "ogg", "m4a", "aac", "opus", "wma", "ape", "wv", "aiff", "alac",
 ];
 
-pub fn scan_folder(conn: &Connection, folder: &str, app: &AppHandle) -> Result<u32, String> {
+pub fn scan_folder(
+    conn: &Connection,
+    folder: &str,
+    app: &AppHandle,
+    settings: &AppSettings,
+) -> Result<u32, String> {
     let root = normalize_root_path(folder)?;
     let path = root.as_path();
     if !path.is_dir() {
@@ -27,7 +33,7 @@ pub fn scan_folder(conn: &Connection, folder: &str, app: &AppHandle) -> Result<u
 
     let mut count: u32 = 0;
     let mut seen_paths = HashSet::new();
-    scan_recursive(conn, path, app, &mut count, &mut seen_paths)?;
+    scan_recursive(conn, path, app, &mut count, &mut seen_paths, settings)?;
     remove_missing_tracks(conn, &root, &seen_paths)?;
 
     app.emit("scan-complete", count).ok();
@@ -45,6 +51,7 @@ fn scan_recursive(
     app: &AppHandle,
     count: &mut u32,
     seen_paths: &mut HashSet<String>,
+    settings: &AppSettings,
 ) -> Result<(), String> {
     let entries = std::fs::read_dir(dir).map_err(|e| format!("Cannot read dir: {}", e))?;
 
@@ -52,7 +59,7 @@ fn scan_recursive(
         let path = entry.path();
 
         if path.is_dir() {
-            scan_recursive(conn, &path, app, count, seen_paths)?;
+            scan_recursive(conn, &path, app, count, seen_paths, settings)?;
             continue;
         }
 
@@ -63,7 +70,7 @@ fn scan_recursive(
 
         if let Some(ext) = ext {
             if SUPPORTED_EXTENSIONS.contains(&ext.as_str()) {
-                match extract_and_insert(conn, &path, &ext) {
+                match extract_and_insert(conn, &path, &ext, settings) {
                     Ok(_) => {
                         seen_paths.insert(path.to_string_lossy().to_string());
                         *count += 1;
@@ -113,7 +120,12 @@ pub fn normalize_root_path(folder: &str) -> Result<PathBuf, String> {
         .map_err(|e| format!("Failed to resolve path {}: {}", folder, e))
 }
 
-fn extract_and_insert(conn: &Connection, path: &Path, ext: &str) -> Result<(), String> {
+fn extract_and_insert(
+    conn: &Connection,
+    path: &Path,
+    ext: &str,
+    settings: &AppSettings,
+) -> Result<(), String> {
     let path_str = path.to_string_lossy().to_string();
     let file_size = std::fs::metadata(path).map(|m| m.len() as i64).ok();
 
@@ -178,10 +190,10 @@ fn extract_and_insert(conn: &Connection, path: &Path, ext: &str) -> Result<(), S
     // Parse and store individual artist names
     let mut all_artists = Vec::new();
     if let Some(ref a) = insert.artist {
-        all_artists.extend(parse_artists(a));
+        all_artists.extend(parse_artists(a, settings));
     }
     if let Some(ref aa) = insert.album_artist {
-        all_artists.extend(parse_artists(aa));
+        all_artists.extend(parse_artists(aa, settings));
     }
     // Deduplicate
     let mut seen = std::collections::HashSet::new();
@@ -197,12 +209,16 @@ fn extract_and_insert(conn: &Connection, path: &Path, ext: &str) -> Result<(), S
     Ok(())
 }
 
-pub fn rescan_file(conn: &Connection, path_str: &str) -> Result<(), String> {
+pub fn rescan_file(
+    conn: &Connection,
+    path_str: &str,
+    settings: &AppSettings,
+) -> Result<(), String> {
     let path = Path::new(path_str);
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
         .map(|e| e.to_lowercase())
         .unwrap_or_default();
-    extract_and_insert(conn, path, &ext)
+    extract_and_insert(conn, path, &ext, settings)
 }

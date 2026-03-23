@@ -35,6 +35,7 @@ export function ArtistView() {
   const [artists, setArtists] = useState<ArtistInfo[]>([]);
   const [filter, setFilter] = useState("");
   const { playQueue, currentTrack, isPlaying } = usePlayerStore();
+  const libraryTracks = useLibraryStore((s) => s.tracks);
   const { selectedArtist, selectedArtistTracks, selectArtist, playlists, addTracksToPlaylist } =
     usePlaylistStore();
   const loadTracks = useLibraryStore((s) => s.loadTracks);
@@ -45,7 +46,13 @@ export function ArtistView() {
 
   useEffect(() => {
     commands.getArtists().then(setArtists);
-  }, []);
+  }, [libraryTracks]);
+
+  useEffect(() => {
+    if (selectedArtist) {
+      selectArtist(selectedArtist);
+    }
+  }, [selectedArtist, selectArtist, libraryTracks]);
 
   useEffect(() => {
     if (!contextMenu) return;

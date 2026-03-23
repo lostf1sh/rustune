@@ -57,6 +57,7 @@ export function AlbumView() {
   const [artCache, setArtCache] = useState<Map<string, AlbumArt | null>>(new Map());
   const [filter, setFilter] = useState("");
   const { playQueue, currentTrack, isPlaying } = usePlayerStore();
+  const libraryTracks = useLibraryStore((s) => s.tracks);
   const {
     selectedAlbum,
     selectedAlbumTracks,
@@ -73,7 +74,13 @@ export function AlbumView() {
 
   useEffect(() => {
     commands.getAlbums().then(setAlbums);
-  }, []);
+  }, [libraryTracks]);
+
+  useEffect(() => {
+    if (selectedAlbum) {
+      selectAlbum(selectedAlbum.album, selectedAlbum.albumArtist);
+    }
+  }, [selectedAlbum, selectAlbum, libraryTracks]);
 
   // Lazy load art for visible albums
   useEffect(() => {

@@ -1,13 +1,30 @@
 use std::collections::HashSet;
 
-/// Separators to try, in order. Longer patterns first to avoid partial matches.
-const SEPARATORS: &[&str] = &[
-    " feat. ", " feat ", " ft. ", " ft ", " & ", " / ", ", ", "; ", ";",
-];
+use crate::settings::AppSettings;
+
+const PRESET_SEPARATORS: &[&str] = &[" featuring ", " feat. ", " feat ", " ft. ", " ft ", " x "];
+const PRESET_EXTRA_SEPARATORS: &[&str] = &[" / ", ", ", "; ", ";"];
+
+pub fn separators_for_settings(settings: &AppSettings) -> Vec<String> {
+    let mut separators: Vec<String> = PRESET_SEPARATORS
+        .iter()
+        .map(|sep| (*sep).to_string())
+        .collect();
+
+    separators.extend(PRESET_EXTRA_SEPARATORS.iter().map(|sep| (*sep).to_string()));
+
+    separators.extend(settings.custom_artist_separators.iter().cloned());
+
+    let mut seen = HashSet::new();
+    separators
+        .into_iter()
+        .filter(|sep| seen.insert(sep.to_lowercase()))
+        .collect()
+}
 
 /// Parse a raw artist string into individual artist names.
 /// Returns at least one entry (the original trimmed string if no separators found).
-pub fn parse_artists(raw: &str) -> Vec<String> {
+pub fn parse_artists(raw: &str, settings: &AppSettings) -> Vec<String> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return Vec::new();
@@ -15,10 +32,10 @@ pub fn parse_artists(raw: &str) -> Vec<String> {
 
     let mut parts: Vec<String> = vec![trimmed.to_string()];
 
-    for sep in SEPARATORS {
+    for sep in separators_for_settings(settings) {
         let mut new_parts = Vec::new();
         for part in &parts {
-            split_by_separator(part, sep, &mut new_parts);
+            split_by_separator(part, &sep, &mut new_parts);
         }
         parts = new_parts;
     }
@@ -64,42 +81,55 @@ mod tests {
 
     #[test]
     fn test_single_artist() {
-        assert_eq!(parse_artists("Pink Floyd"), vec!["Pink Floyd"]);
+        assert_eq!(
+            parse_artists("Pink Floyd", &AppSettings::default()),
+            vec!["Pink Floyd"]
+        );
     }
 
     #[test]
     fn test_feat() {
-        let result = parse_artists("Drake feat. Rihanna");
+        let result = parse_artists("Drake feat. Rihanna", &AppSettings::default());
         assert_eq!(result, vec!["Drake", "Rihanna"]);
     }
 
     #[test]
     fn test_comma_multiple() {
-        let result = parse_artists("Artist A, Artist B, Artist C");
+        let result = parse_artists("Artist A, Artist B, Artist C", &AppSettings::default());
         assert_eq!(result, vec!["Artist A", "Artist B", "Artist C"]);
-    }
-
-    #[test]
-    fn test_mixed_separators() {
-        let result = parse_artists("DJ Khaled feat. Drake & Lil Wayne");
-        assert_eq!(result, vec!["DJ Khaled", "Drake", "Lil Wayne"]);
     }
 
     #[test]
     fn test_semicolon() {
-        let result = parse_artists("Artist A; Artist B; Artist C");
+        let result = parse_artists("Artist A; Artist B; Artist C", &AppSettings::default());
         assert_eq!(result, vec!["Artist A", "Artist B", "Artist C"]);
     }
 
     #[test]
-    fn test_dedup() {
-        let result = parse_artists("Drake & drake");
+    fn test_preset_preserves_ampersand() {
+        let result = parse_artists("Simon & Garfunkel", &AppSettings::default());
+        assert_eq!(result, vec!["Simon & Garfunkel"]);
+    }
+
+    #[test]
+    fn test_custom_ampersand_separator() {
+        let mut custom = AppSettings::default();
+        custom.custom_artist_separators = vec![" & ".to_string()];
+        let result = parse_artists("Drake & drake", &custom);
         assert_eq!(result, vec!["Drake"]);
     }
 
     #[test]
     fn test_empty() {
-        assert!(parse_artists("").is_empty());
-        assert!(parse_artists("  ").is_empty());
+        assert!(parse_artists("", &AppSettings::default()).is_empty());
+        assert!(parse_artists("  ", &AppSettings::default()).is_empty());
+    }
+
+    #[test]
+    fn test_custom_separator() {
+        let mut custom = AppSettings::default();
+        custom.custom_artist_separators = vec![" + ".to_string()];
+        let result = parse_artists("A + B", &custom);
+        assert_eq!(result, vec!["A", "B"]);
     }
 }

@@ -9,6 +9,7 @@ use tauri::{AppHandle, Emitter};
 use crate::db::queries;
 use crate::db::DbConn;
 use crate::library::scanner;
+use crate::settings::SettingsState;
 
 const SUPPORTED_EXTENSIONS: &[&str] = &[
     "mp3", "flac", "wav", "ogg", "m4a", "aac", "opus", "wma", "ape", "wv", "aiff", "alac",
@@ -20,21 +21,33 @@ pub struct LibraryWatcher {
     watchers: Arc<Mutex<HashMap<String, RecommendedWatcher>>>,
     db: DbConn,
     app: AppHandle,
+    settings: SettingsState,
 }
 
 impl LibraryWatcher {
-    pub fn new(db: DbConn, app: AppHandle) -> Self {
+    pub fn new(db: DbConn, app: AppHandle, settings: SettingsState) -> Self {
         Self {
             watchers: Arc::new(Mutex::new(HashMap::new())),
             db,
             app,
+            settings,
         }
     }
 
     pub fn watch_root(&self, root: &str) -> Result<(), String> {
+        if self
+            .watchers
+            .lock()
+            .map_err(|e| e.to_string())?
+            .contains_key(root)
+        {
+            return Ok(());
+        }
+
         let root_str = root.to_string();
         let db = self.db.clone();
         let app = self.app.clone();
+        let settings = self.settings.clone();
 
         let (tx, rx) = std::sync::mpsc::channel();
         let mut watcher =
@@ -46,13 +59,10 @@ impl LibraryWatcher {
 
         // Spawn handler thread
         std::thread::spawn(move || {
-            handle_events(rx, db, app);
+            handle_events(rx, db, app, settings);
         });
 
-        self.watchers
-            .lock()
-            .unwrap()
-            .insert(root_str, watcher);
+        self.watchers.lock().unwrap().insert(root_str, watcher);
 
         log::info!("Watching library root: {}", root);
         Ok(())
@@ -62,6 +72,11 @@ impl LibraryWatcher {
         if self.watchers.lock().unwrap().remove(root).is_some() {
             log::info!("Stopped watching: {}", root);
         }
+    }
+
+    pub fn unwatch_all(&self) {
+        self.watchers.lock().unwrap().clear();
+        log::info!("Stopped watching all library roots");
     }
 
     pub fn watch_all_roots(&self) -> Result<(), String> {
@@ -89,6 +104,7 @@ fn handle_events(
     rx: std::sync::mpsc::Receiver<notify::Result<Event>>,
     db: DbConn,
     app: AppHandle,
+    settings: SettingsState,
 ) {
     let mut pending: HashMap<String, Instant> = HashMap::new();
 
@@ -137,7 +153,14 @@ fn handle_events(
                 for path_str in &ready {
                     pending.remove(path_str);
                     if Path::new(path_str).exists() {
-                        if let Err(e) = scanner::rescan_file(&conn, path_str) {
+                        let current_settings = match settings.lock() {
+                            Ok(guard) => guard.0.clone(),
+                            Err(e) => {
+                                log::warn!("Settings lock failed during rescan: {}", e);
+                                continue;
+                            }
+                        };
+                        if let Err(e) = scanner::rescan_file(&conn, path_str, &current_settings) {
                             log::warn!("Rescan failed for {}: {}", path_str, e);
                         }
                     }

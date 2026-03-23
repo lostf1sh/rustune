@@ -22,7 +22,14 @@ function Toggle({
 }
 
 export function SettingsView() {
-  const { settings, loaded, loadSettings, updateSettings, resetSettings } =
+  const {
+    settings,
+    loaded,
+    loadSettings,
+    updateSettings,
+    resetSettings,
+    rebuildArtistIndex,
+  } =
     useSettingsStore();
 
   useEffect(() => {
@@ -65,6 +72,46 @@ export function SettingsView() {
                 value={settings.scanOnStartup}
                 onChange={(v) => updateSettings({ scanOnStartup: v })}
               />
+            </div>
+            <div className={styles.columnRow}>
+              <div className={styles.rowInfo}>
+                <span className={styles.label}>Artist parsing preset</span>
+                <span className={styles.desc}>
+                  Default preset splits on <code>feat.</code>, <code>ft.</code>, <code>featuring</code>, <code>x</code>, <code>/</code>, <code>,</code> and <code>;</code>
+                </span>
+              </div>
+            </div>
+            <div className={styles.columnRow}>
+              <div className={styles.rowInfo}>
+                <span className={styles.label}>Extra artist delimiters</span>
+                <span className={styles.desc}>
+                  One delimiter per line. Example: <code> &amp; </code> or <code> + </code>
+                </span>
+              </div>
+              <textarea
+                className={styles.textarea}
+                value={settings.customArtistSeparators.join("\n")}
+                onChange={(e) =>
+                  updateSettings({
+                    customArtistSeparators: e.target.value
+                      .split("\n")
+                      .filter((line) => line.trim().length > 0),
+                  })
+                }
+                rows={4}
+                spellCheck={false}
+              />
+            </div>
+            <div className={styles.columnRow}>
+              <div className={styles.rowInfo}>
+                <span className={styles.label}>Artist index</span>
+                <span className={styles.desc}>
+                  Rebuild artist mappings after changing parsing settings
+                </span>
+              </div>
+              <button className={styles.secondaryBtn} onClick={rebuildArtistIndex}>
+                Rebuild Artist Index
+              </button>
             </div>
           </section>
 

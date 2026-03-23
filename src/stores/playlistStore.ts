@@ -37,6 +37,7 @@ interface PlaylistStore {
   viewFavorites: () => Promise<void>;
   viewRecentPlays: () => Promise<void>;
   viewSettings: () => void;
+  refreshActiveView: () => Promise<void>;
 }
 
 const clearBrowseState = {
@@ -147,5 +148,46 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   viewRecentPlays: async () => {
     const tracks = await commands.getRecentPlays();
     set({ viewMode: "recentPlays", ...clearBrowseState, recentTracks: tracks });
+  },
+
+  refreshActiveView: async () => {
+    const {
+      viewMode,
+      activePlaylistId,
+      selectedArtist,
+      selectedAlbum,
+    } = get();
+
+    if (viewMode === "playlist" && activePlaylistId !== null) {
+      const tracks = await commands.getPlaylistTracks(activePlaylistId);
+      set({ activePlaylistTracks: tracks });
+      return;
+    }
+
+    if (viewMode === "favorites") {
+      const tracks = await commands.getFavorites();
+      set({ favoriteTracks: tracks });
+      return;
+    }
+
+    if (viewMode === "recentPlays") {
+      const tracks = await commands.getRecentPlays();
+      set({ recentTracks: tracks });
+      return;
+    }
+
+    if (viewMode === "artists" && selectedArtist) {
+      const tracks = await commands.getArtistTracks(selectedArtist);
+      set({ selectedArtistTracks: tracks });
+      return;
+    }
+
+    if (viewMode === "albums" && selectedAlbum) {
+      const tracks = await commands.getAlbumTracks(
+        selectedAlbum.album,
+        selectedAlbum.albumArtist
+      );
+      set({ selectedAlbumTracks: tracks });
+    }
   },
 }));

@@ -24,6 +24,7 @@ function App() {
   const loadRoots = useLibraryStore((s) => s.loadRoots);
   const loadPlaylists = usePlaylistStore((s) => s.loadPlaylists);
   const viewMode = usePlaylistStore((s) => s.viewMode);
+  const refreshActiveView = usePlaylistStore((s) => s.refreshActiveView);
 
   const loadSettings = useSettingsStore((s) => s.loadSettings);
   const compactMode = useSettingsStore((s) => s.settings.compactMode);
@@ -47,9 +48,10 @@ function App() {
   useEffect(() => {
     const unlisten = listen("library-changed", () => {
       loadTracks();
+      refreshActiveView();
     });
     return () => { unlisten.then((fn) => fn()); };
-  }, [loadTracks]);
+  }, [loadTracks, refreshActiveView]);
 
   // Playback state listener + window title update
   useEffect(() => {
