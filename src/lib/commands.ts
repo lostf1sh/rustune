@@ -74,9 +74,6 @@ export interface AlbumArt {
 export interface Playlist {
   id: number;
   name: string;
-  description: string;
-  pinned: boolean;
-  coverTrackPath: string | null;
   trackCount: number;
   createdAt: string;
   updatedAt: string;
@@ -159,10 +156,6 @@ export const commands = {
     invoke("remove_track_from_playlist", { playlistId, trackId }),
   getPlaylistTracks: (playlistId: number) =>
     invoke<Track[]>("get_playlist_tracks", { playlistId }),
-  updatePlaylistMeta: (id: number, name: string, description: string, pinned: boolean, coverTrackPath: string | null) =>
-    invoke<Playlist>("update_playlist_meta", { id, name, description, pinned, coverTrackPath }),
-  togglePlaylistPin: (id: number) =>
-    invoke<Playlist>("toggle_playlist_pin", { id }),
 
   getAlbumArt: (path: string) =>
     invoke<AlbumArt | null>("get_album_art", { path }),

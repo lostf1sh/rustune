@@ -38,10 +38,6 @@ interface PlaylistStore {
   viewRecentPlays: () => Promise<void>;
   viewSettings: () => void;
   refreshActiveView: () => Promise<void>;
-  updatePlaylistMeta: (id: number, name: string, description: string, pinned: boolean, coverTrackPath: string | null) => Promise<void>;
-  togglePlaylistPin: (id: number) => Promise<void>;
-  playlistSearchQuery: string;
-  setPlaylistSearchQuery: (query: string) => void;
 }
 
 const clearBrowseState = {
@@ -66,7 +62,6 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   selectedAlbumTracks: [],
   favoriteTracks: [],
   recentTracks: [],
-  playlistSearchQuery: "",
 
   loadPlaylists: async () => {
     const playlists = await commands.getPlaylists();
@@ -194,21 +189,5 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
       );
       set({ selectedAlbumTracks: tracks });
     }
-  },
-
-  updatePlaylistMeta: async (id, name, description, pinned, coverTrackPath) => {
-    const updated = await commands.updatePlaylistMeta(id, name, description, pinned, coverTrackPath);
-    set((s) => ({
-      playlists: s.playlists.map((p) => (p.id === updated.id ? updated : p)),
-    }));
-  },
-
-  togglePlaylistPin: async (id) => {
-    await commands.togglePlaylistPin(id);
-    await get().loadPlaylists();
-  },
-
-  setPlaylistSearchQuery: (query) => {
-    set({ playlistSearchQuery: query });
   },
 }));

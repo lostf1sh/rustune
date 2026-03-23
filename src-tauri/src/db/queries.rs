@@ -588,9 +588,6 @@ pub fn backfill_track_artists(
 pub struct Playlist {
     pub id: i64,
     pub name: String,
-    pub description: String,
-    pub pinned: bool,
-    pub cover_track_path: Option<String>,
     pub track_count: i64,
     pub created_at: String,
     pub updated_at: String,
@@ -606,41 +603,44 @@ pub fn create_playlist(conn: &Connection, name: &str) -> Result<Playlist, String
 
 pub fn get_playlist(conn: &Connection, id: i64) -> Result<Playlist, String> {
     conn.query_row(
-        "SELECT p.id, p.name, COALESCE(p.description, ''), COALESCE(p.pinned, 0), p.cover_track_path,
+        "SELECT p.id, p.name,
                 (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = p.id),
                 p.created_at, p.updated_at
          FROM playlists p WHERE p.id = ?1",
         params![id],
-        row_to_playlist,
+        |row| {
+            Ok(Playlist {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                track_count: row.get(2)?,
+                created_at: row.get(3)?,
+                updated_at: row.get(4)?,
+            })
+        },
     )
     .map_err(|e| e.to_string())
-}
-
-fn row_to_playlist(row: &rusqlite::Row) -> rusqlite::Result<Playlist> {
-    Ok(Playlist {
-        id: row.get(0)?,
-        name: row.get(1)?,
-        description: row.get(2)?,
-        pinned: row.get::<_, i32>(3).map(|v| v != 0)?,
-        cover_track_path: row.get(4)?,
-        track_count: row.get(5)?,
-        created_at: row.get(6)?,
-        updated_at: row.get(7)?,
-    })
 }
 
 pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT p.id, p.name, COALESCE(p.description, ''), COALESCE(p.pinned, 0), p.cover_track_path,
+            "SELECT p.id, p.name,
                     (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = p.id),
                     p.created_at, p.updated_at
-             FROM playlists p ORDER BY p.pinned DESC, p.name COLLATE NOCASE",
+             FROM playlists p ORDER BY p.name",
         )
         .map_err(|e| e.to_string())?;
 
     let playlists = stmt
-        .query_map([], row_to_playlist)
+        .query_map([], |row| {
+            Ok(Playlist {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                track_count: row.get(2)?,
+                created_at: row.get(3)?,
+                updated_at: row.get(4)?,
+            })
+        })
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
         .collect();
@@ -655,33 +655,6 @@ pub fn rename_playlist(conn: &Connection, id: i64, name: &str) -> Result<(), Str
     )
     .map_err(|e| e.to_string())?;
     Ok(())
-}
-
-pub fn update_playlist_meta(
-    conn: &Connection,
-    id: i64,
-    name: &str,
-    description: &str,
-    pinned: bool,
-    cover_track_path: Option<&str>,
-) -> Result<Playlist, String> {
-    conn.execute(
-        "UPDATE playlists SET name = ?1, description = ?2, pinned = ?3,
-         cover_track_path = ?4, updated_at = datetime('now') WHERE id = ?5",
-        params![name, description, pinned as i32, cover_track_path, id],
-    )
-    .map_err(|e| e.to_string())?;
-    get_playlist(conn, id)
-}
-
-pub fn toggle_playlist_pin(conn: &Connection, id: i64) -> Result<Playlist, String> {
-    conn.execute(
-        "UPDATE playlists SET pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END,
-         updated_at = datetime('now') WHERE id = ?1",
-        params![id],
-    )
-    .map_err(|e| e.to_string())?;
-    get_playlist(conn, id)
 }
 
 pub fn delete_playlist(conn: &Connection, id: i64) -> Result<(), String> {

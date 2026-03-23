@@ -21,31 +21,17 @@ export function Sidebar() {
     viewSettings,
     createPlaylist,
     deletePlaylist,
-    renamePlaylist,
-    togglePlaylistPin,
   } = usePlaylistStore();
 
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Inline rename state
-  const [renamingId, setRenamingId] = useState<number | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const renameRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     if (isCreating && inputRef.current) {
       inputRef.current.focus();
     }
   }, [isCreating]);
-
-  useEffect(() => {
-    if (renamingId !== null && renameRef.current) {
-      renameRef.current.focus();
-      renameRef.current.select();
-    }
-  }, [renamingId]);
 
   useEffect(() => {
     const unlistenProgress = listen<number>("scan-progress", (e) => {
@@ -87,31 +73,6 @@ export function Sidebar() {
     } else if (e.key === "Escape") {
       setNewName("");
       setIsCreating(false);
-    }
-  };
-
-  const handleStartRename = (id: number, currentName: string) => {
-    setRenamingId(id);
-    setRenameValue(currentName);
-  };
-
-  const handleFinishRename = async () => {
-    if (renamingId !== null) {
-      const trimmed = renameValue.trim();
-      if (trimmed && trimmed !== playlists.find((p) => p.id === renamingId)?.name) {
-        await renamePlaylist(renamingId, trimmed);
-      }
-      setRenamingId(null);
-      setRenameValue("");
-    }
-  };
-
-  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleFinishRename();
-    } else if (e.key === "Escape") {
-      setRenamingId(null);
-      setRenameValue("");
     }
   };
 
@@ -195,46 +156,13 @@ export function Sidebar() {
             <div
               key={pl.id}
               className={`${styles.playlistItem} ${activePlaylistId === pl.id ? styles.active : ""}`}
-              onClick={() => renamingId !== pl.id && viewPlaylist(pl.id)}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                handleStartRename(pl.id, pl.name);
-              }}
+              onClick={() => viewPlaylist(pl.id)}
             >
               <svg className={styles.playlistIcon} width="13" height="13" viewBox="0 0 13 13" fill="none">
                 <path d="M2 3h7M2 6h5M2 9h4" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
                 <path d="M10 4.5v5a1.5 1.5 0 11-1.5-1.5H10" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-
-              {/* Pin icon */}
-              <button
-                className={`${styles.pinBtn} ${pl.pinned ? styles.pinActive : ""}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  togglePlaylistPin(pl.id);
-                }}
-                title={pl.pinned ? "Unpin" : "Pin"}
-              >
-                <svg width="9" height="9" viewBox="0 0 10 10" fill={pl.pinned ? "currentColor" : "none"}>
-                  <path d="M6.5 1L9 3.5 6.5 6H5L3.5 8.5 1.5 6.5 4 5V3.5L6.5 1z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
-                </svg>
-              </button>
-
-              {renamingId === pl.id ? (
-                <input
-                  ref={renameRef}
-                  type="text"
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onKeyDown={handleRenameKeyDown}
-                  onBlur={handleFinishRename}
-                  className={styles.renameInput}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <span className={styles.playlistName}>{pl.name}</span>
-              )}
-
+              <span className={styles.playlistName}>{pl.name}</span>
               <span className={styles.playlistCount}>{pl.trackCount}</span>
               <button
                 className={styles.playlistDeleteBtn}
