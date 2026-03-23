@@ -95,6 +95,11 @@ export function AlbumView() {
     }
   }, [selectedAlbum, selectAlbum, libraryRevision]);
 
+  useEffect(() => {
+    // Library reload clears shared art cache; allow keys to be requested again.
+    artLoadRef.current.clear();
+  }, [libraryRevision]);
+
   // Lazy-load covers into global store so grid/detail survive leaving Albums view.
   useEffect(() => {
     for (const album of albums) {

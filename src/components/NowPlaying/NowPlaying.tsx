@@ -161,6 +161,7 @@ export function NowPlaying() {
   const trackMeta = useLibraryStore((s) =>
     currentTrack ? s.trackByPath[currentTrack] : undefined
   );
+  const libraryRevision = useLibraryStore((s) => s.libraryRevision);
 
   const [art, setArt] = useState<AlbumArt | null>(null);
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null);
@@ -211,15 +212,7 @@ export function NowPlaying() {
     return () => {
       cancelled = true;
     };
-  }, [
-    currentTrack,
-    trackMeta?.id,
-    trackMeta?.title,
-    trackMeta?.artist,
-    trackMeta?.album,
-    trackMeta?.durationMs,
-    durationSecs,
-  ]);
+  }, [currentTrack, trackMeta, durationSecs, libraryRevision]);
 
   const handleSeek = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => seek(parseFloat(e.target.value)),
