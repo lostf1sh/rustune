@@ -91,3 +91,15 @@ pub fn reorder_playlist_tracks(
     let conn = db.lock().map_err(|e| e.to_string())?;
     queries::reorder_playlist_tracks(&conn, playlist_id, track_ids)
 }
+
+#[tauri::command]
+pub fn set_playlist_cover(id: i64, track_path: String, db: State<'_, DbConn>) -> Result<Playlist, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    queries::set_playlist_cover(&conn, id, &track_path)
+}
+
+#[tauri::command]
+pub fn clear_playlist_cover(id: i64, db: State<'_, DbConn>) -> Result<Playlist, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    queries::clear_playlist_cover(&conn, id)
+}

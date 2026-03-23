@@ -349,6 +349,45 @@
   border-bottom: 1px solid var(--border);
 }
 
+.playlistHeaderContent {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.playlistCoverWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.clearCoverBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 2px;
+  transition: color 0.1s;
+}
+
+.clearCoverBtn:hover {
+  color: var(--text-secondary);
+}
+
+.playlistHeaderMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+  justify-content: center;
+}
+
 .playlistHeader {
   display: flex;
   flex-direction: column;

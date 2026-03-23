@@ -45,6 +45,8 @@ interface PlaylistStore {
   setPlaylistSearchQuery: (query: string) => void;
   removeTracksFromPlaylist: (playlistId: number, trackIds: number[]) => Promise<void>;
   reorderPlaylistTracks: (playlistId: number, trackIds: number[]) => Promise<void>;
+  setPlaylistCover: (id: number, trackPath: string) => Promise<void>;
+  clearPlaylistCover: (id: number) => Promise<void>;
 }
 
 const clearBrowseState = {
@@ -244,5 +246,19 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
       const tracks = await commands.getPlaylistTracks(playlistId);
       set({ activePlaylistTracks: tracks });
     }
+  },
+
+  setPlaylistCover: async (id, trackPath) => {
+    const updated = await commands.setPlaylistCover(id, trackPath);
+    set((s) => ({
+      playlists: s.playlists.map((p) => (p.id === updated.id ? updated : p)),
+    }));
+  },
+
+  clearPlaylistCover: async (id) => {
+    const updated = await commands.clearPlaylistCover(id);
+    set((s) => ({
+      playlists: s.playlists.map((p) => (p.id === updated.id ? updated : p)),
+    }));
   },
 }));
