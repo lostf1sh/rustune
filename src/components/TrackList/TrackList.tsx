@@ -3,7 +3,6 @@ import { useLibraryStore } from "../../stores/libraryStore";
 import { usePlayerStore } from "../../stores/playerStore";
 import { usePlaylistStore } from "../../stores/playlistStore";
 import { TagEditor } from "../TagEditor/TagEditor";
-import { useSelectionStore } from "../../stores/selectionStore";
 import { commands, type Track } from "../../lib/commands";
 import styles from "./TrackList.module.css";
 
@@ -84,10 +83,7 @@ export function TrackList() {
     togglePlaylistPin,
     playlistSearchQuery,
     setPlaylistSearchQuery,
-    removeTracksFromPlaylist,
   } = usePlaylistStore();
-
-  const selection = useSelectionStore();
 
   const searchRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -138,11 +134,6 @@ export function TrackList() {
       setPlaylistSearchQuery("");
     }
   }, [isPlaylistView, setPlaylistSearchQuery]);
-
-  // Clear selection when playlist search changes
-  useEffect(() => {
-    selection.clearSelection();
-  }, [playlistSearchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Focus title/desc inputs
   useEffect(() => {
@@ -207,26 +198,6 @@ export function TrackList() {
       await addTracksToPlaylist(playlistId, [contextMenu.trackId]);
       setContextMenu(null);
     }
-  };
-
-  const handleRowClick = (e: React.MouseEvent, track: Track, index: number) => {
-    if (!isPlaylistView) return;
-    if (e.shiftKey) {
-      e.preventDefault();
-      selection.rangeSelect(index, displayTracks.map((t) => t.id));
-    } else if (e.ctrlKey || e.metaKey) {
-      selection.toggleSelect(track.id, index);
-    } else {
-      selection.select(track.id, index);
-    }
-  };
-
-  const handleBulkRemove = async () => {
-    if (!activePlaylistId) return;
-    const ids = selection.getSelectedIds();
-    if (ids.length === 0) return;
-    await removeTracksFromPlaylist(activePlaylistId, ids);
-    selection.clearSelection();
   };
 
   const handleToggleFavorite = async (e: React.MouseEvent, trackId: number) => {
@@ -446,28 +417,6 @@ export function TrackList() {
         )}
       </div>
 
-      {/* Selection toolbar */}
-      {isPlaylistView && selection.selectedCount() > 0 && (
-        <div className={styles.selectionBar}>
-          <span className={styles.selectionCount}>{selection.selectedCount()}</span>
-          <span className={styles.selectionLabel}>selected</span>
-          <div className={styles.selectionActions}>
-            <button className={styles.selectionBtn} onClick={handleBulkRemove}>
-              Remove
-            </button>
-            <button
-              className={styles.selectionBtn}
-              onClick={() => selection.selectAll(displayTracks.map((t) => t.id))}
-            >
-              Select All
-            </button>
-            <button className={styles.selectionBtn} onClick={selection.clearSelection}>
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <thead>
@@ -500,8 +449,7 @@ export function TrackList() {
               return (
                 <tr
                   key={`${track.id}-${i}`}
-                  className={`${styles.row} ${isCurrent ? styles.playing : ""} ${isPlaylistView && selection.isSelected(track.id) ? styles.selected : ""}`}
-                  onClick={(e) => handleRowClick(e, track, i)}
+                  className={`${styles.row} ${isCurrent ? styles.playing : ""}`}
                   onDoubleClick={() => handlePlay(i)}
                   onContextMenu={(e) => handleContextMenu(e, track.id, track.path)}
                 >

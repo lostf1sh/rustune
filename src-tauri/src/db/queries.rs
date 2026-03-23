@@ -740,29 +740,6 @@ pub fn remove_track_from_playlist(
     Ok(())
 }
 
-pub fn remove_tracks_from_playlist(
-    conn: &Connection,
-    playlist_id: i64,
-    track_ids: &[i64],
-) -> Result<(), String> {
-    let mut stmt = conn
-        .prepare("DELETE FROM playlist_tracks WHERE playlist_id = ?1 AND track_id = ?2")
-        .map_err(|e| e.to_string())?;
-
-    for tid in track_ids {
-        stmt.execute(params![playlist_id, tid])
-            .map_err(|e| e.to_string())?;
-    }
-
-    conn.execute(
-        "UPDATE playlists SET updated_at = datetime('now') WHERE id = ?1",
-        params![playlist_id],
-    )
-    .map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
 pub fn get_playlist_tracks(conn: &Connection, playlist_id: i64) -> Result<Vec<Track>, String> {
     let mut stmt = conn
         .prepare(

@@ -163,8 +163,6 @@ export const commands = {
     invoke<Playlist>("update_playlist_meta", { id, name, description, pinned, coverTrackPath }),
   togglePlaylistPin: (id: number) =>
     invoke<Playlist>("toggle_playlist_pin", { id }),
-  removeTracksFromPlaylist: (playlistId: number, trackIds: number[]) =>
-    invoke("remove_tracks_from_playlist", { playlistId, trackIds }),
 
   getAlbumArt: (path: string) =>
     invoke<AlbumArt | null>("get_album_art", { path }),

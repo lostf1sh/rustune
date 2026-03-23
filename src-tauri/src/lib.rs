@@ -121,7 +121,6 @@ pub fn run() {
             commands::playlist::get_playlist_tracks,
             commands::playlist::update_playlist_meta,
             commands::playlist::toggle_playlist_pin,
-            commands::playlist::remove_tracks_from_playlist,
             commands::tags::get_album_art,
             commands::tags::read_tags,
             commands::tags::write_tags,
