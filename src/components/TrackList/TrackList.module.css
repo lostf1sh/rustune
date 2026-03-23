@@ -276,12 +276,24 @@
 }
 
 /* Playlist header */
-.playlistHeader {
+.playlistHeaderWrap {
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
   gap: 10px;
   padding: 0 0 10px;
   border-bottom: 1px solid var(--border);
+}
+
+.playlistHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.playlistTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .playlistTitle {
@@ -289,11 +301,103 @@
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.3px;
+  cursor: text;
+  border-radius: 3px;
+  padding: 1px 3px;
+  margin: -1px -3px;
+  transition: background 0.1s;
+}
+
+.playlistTitle:hover {
+  background: var(--surface-1);
+}
+
+.titleInput {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+  background: var(--surface-2);
+  border: 1px solid var(--now-playing);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: inherit;
+  outline: none;
+  caret-color: var(--now-playing);
+  flex: 1;
+  min-width: 0;
+}
+
+.headerPinBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.1s, background 0.1s;
+}
+
+.headerPinBtn:hover {
+  color: var(--now-playing);
+  background: var(--surface-1);
+}
+
+.headerPinBtn.headerPinActive {
+  color: var(--now-playing);
+}
+
+.playlistDesc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: text;
+  padding: 1px 3px;
+  margin: -1px -3px;
+  border-radius: 3px;
+  transition: background 0.1s;
+}
+
+.playlistDesc:hover {
+  background: var(--surface-1);
+}
+
+.playlistDesc.descPlaceholder {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.descInput {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border: 1px solid var(--now-playing);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-family: inherit;
+  outline: none;
+  caret-color: var(--now-playing);
+  width: 100%;
+}
+
+.descInput::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .playlistMeta {
   font-size: 11px;
   color: var(--text-muted);
+}
+
+/* Playlist search */
+.playlistSearchWrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Remove button in playlist view */

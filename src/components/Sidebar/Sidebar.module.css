@@ -196,6 +196,51 @@
   flex-shrink: 0;
 }
 
+/* Pin button */
+.pinBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 1px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.1s, color 0.1s;
+}
+
+.pinBtn.pinActive {
+  opacity: 1;
+  color: var(--now-playing);
+}
+
+.playlistItem:hover .pinBtn {
+  opacity: 0.7;
+}
+
+.pinBtn:hover {
+  opacity: 1 !important;
+  color: var(--now-playing);
+}
+
+/* Inline rename input */
+.renameInput {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--now-playing);
+  border-radius: 3px;
+  padding: 2px 5px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text-primary);
+  outline: none;
+  caret-color: var(--now-playing);
+}
+
 .playlistItem.active .playlistIcon {
   color: var(--text-secondary);
 }

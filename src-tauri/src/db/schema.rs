@@ -84,5 +84,17 @@ pub fn run_migrations(conn: &Connection) -> Result<(), String> {
             .map_err(|e| format!("Migration error: {}", e))?;
         log::info!("Added favorite column to tracks table");
     }
+    // Add playlist metadata columns if not exists
+    let has_description = conn.prepare("SELECT description FROM playlists LIMIT 0").is_ok();
+    if !has_description {
+        conn.execute_batch(
+            "ALTER TABLE playlists ADD COLUMN description TEXT DEFAULT '';
+             ALTER TABLE playlists ADD COLUMN pinned INTEGER DEFAULT 0;
+             ALTER TABLE playlists ADD COLUMN cover_track_path TEXT;",
+        )
+        .map_err(|e| format!("Migration error: {}", e))?;
+        log::info!("Added description, pinned, cover_track_path columns to playlists table");
+    }
+
     Ok(())
 }

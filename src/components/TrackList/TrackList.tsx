@@ -14,6 +14,29 @@ function formatDuration(ms: number | null): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+function formatTotalDuration(tracks: Track[]): string {
+  const totalMs = tracks.reduce((sum, t) => sum + (t.durationMs ?? 0), 0);
+  const mins = Math.floor(totalMs / 60000);
+  if (mins < 60) return `${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return `${hrs} hr ${rem} min`;
+}
+
+function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr + "Z").getTime();
+  const diff = now - then;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+}
+
 function EqIndicator() {
   return (
     <div className={styles.eqBars}>
@@ -56,6 +79,10 @@ export function TrackList() {
     addTracksToPlaylist,
     removeTrackFromPlaylist,
     refreshActiveView,
+    updatePlaylistMeta,
+    togglePlaylistPin,
+    playlistSearchQuery,
+    setPlaylistSearchQuery,
   } = usePlaylistStore();
 
   const searchRef = useRef<HTMLInputElement>(null);
@@ -64,22 +91,63 @@ export function TrackList() {
   const [editingPath, setEditingPath] = useState<string | null>(null);
   const loadTracks = useLibraryStore((s) => s.loadTracks);
 
+  // Playlist header editing state
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [descDraft, setDescDraft] = useState("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const descInputRef = useRef<HTMLInputElement>(null);
+
   const isPlaylistView = viewMode === "playlist";
   const showSearch = viewMode === "library";
   const canSort = viewMode === "library";
 
+  const activePlaylist = playlists.find((p) => p.id === activePlaylistId);
+
+  // Playlist search filtering
+  const filteredPlaylistTracks = isPlaylistView && playlistSearchQuery
+    ? activePlaylistTracks.filter((t) => {
+        const q = playlistSearchQuery.toLowerCase();
+        return (
+          t.title?.toLowerCase().includes(q) ||
+          t.artist?.toLowerCase().includes(q) ||
+          t.album?.toLowerCase().includes(q)
+        );
+      })
+    : activePlaylistTracks;
+
   const displayTracks: Track[] =
-    viewMode === "playlist" ? activePlaylistTracks :
+    viewMode === "playlist" ? filteredPlaylistTracks :
     viewMode === "favorites" ? favoriteTracks :
     viewMode === "recentPlays" ? recentTracks :
     filteredTracks;
-
-  const activePlaylist = playlists.find((p) => p.id === activePlaylistId);
 
   const viewTitle =
     viewMode === "favorites" ? "Favorites" :
     viewMode === "recentPlays" ? "Recently Played" :
     null;
+
+  // Reset playlist search when leaving playlist view
+  useEffect(() => {
+    if (!isPlaylistView) {
+      setPlaylistSearchQuery("");
+    }
+  }, [isPlaylistView, setPlaylistSearchQuery]);
+
+  // Focus title/desc inputs
+  useEffect(() => {
+    if (editingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [editingTitle]);
+
+  useEffect(() => {
+    if (editingDesc && descInputRef.current) {
+      descInputRef.current.focus();
+    }
+  }, [editingDesc]);
 
   // Close context menu on click outside
   useEffect(() => {
@@ -100,9 +168,24 @@ export function TrackList() {
     [setSearchQuery]
   );
 
+  const handlePlaylistSearch = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setPlaylistSearchQuery(e.target.value);
+    },
+    [setPlaylistSearchQuery]
+  );
+
   const handlePlay = async (index: number) => {
-    const paths = displayTracks.map((t) => t.path);
-    await playQueue(paths, index);
+    if (isPlaylistView && playlistSearchQuery) {
+      // Map filtered index to unfiltered index
+      const track = displayTracks[index];
+      const unfilteredIndex = activePlaylistTracks.findIndex((t) => t.id === track.id);
+      const paths = activePlaylistTracks.map((t) => t.path);
+      await playQueue(paths, unfilteredIndex >= 0 ? unfilteredIndex : index);
+    } else {
+      const paths = displayTracks.map((t) => t.path);
+      await playQueue(paths, index);
+    }
   };
 
   const handleContextMenu = (e: React.MouseEvent, trackId: number, trackPath: string) => {
@@ -122,6 +205,32 @@ export function TrackList() {
     await commands.toggleFavorite(trackId);
     await loadTracks();
     await refreshActiveView();
+  };
+
+  const handleSaveTitle = async () => {
+    if (activePlaylist && titleDraft.trim() && titleDraft.trim() !== activePlaylist.name) {
+      await updatePlaylistMeta(
+        activePlaylist.id,
+        titleDraft.trim(),
+        activePlaylist.description,
+        activePlaylist.pinned,
+        activePlaylist.coverTrackPath
+      );
+    }
+    setEditingTitle(false);
+  };
+
+  const handleSaveDesc = async () => {
+    if (activePlaylist && descDraft !== activePlaylist.description) {
+      await updatePlaylistMeta(
+        activePlaylist.id,
+        activePlaylist.name,
+        descDraft,
+        activePlaylist.pinned,
+        activePlaylist.coverTrackPath
+      );
+    }
+    setEditingDesc(false);
   };
 
   if (displayTracks.length === 0 && searchQuery && showSearch) {
@@ -150,7 +259,7 @@ export function TrackList() {
     );
   }
 
-  if (displayTracks.length === 0) {
+  if (displayTracks.length === 0 && !(isPlaylistView && playlistSearchQuery)) {
     return (
       <div className={styles.container}>
         <div className={styles.empty}>
@@ -186,11 +295,97 @@ export function TrackList() {
     <div className={styles.container}>
       <div className={styles.header}>
         {isPlaylistView && activePlaylist ? (
-          <div className={styles.playlistHeader}>
-            <h2 className={styles.playlistTitle}>{activePlaylist.name}</h2>
-            <span className={styles.playlistMeta}>
-              {activePlaylist.trackCount} track{activePlaylist.trackCount !== 1 ? "s" : ""}
-            </span>
+          <div className={styles.playlistHeaderWrap}>
+            <div className={styles.playlistHeader}>
+              <div className={styles.playlistTitleRow}>
+                {editingTitle ? (
+                  <input
+                    ref={titleInputRef}
+                    type="text"
+                    value={titleDraft}
+                    onChange={(e) => setTitleDraft(e.target.value)}
+                    onBlur={handleSaveTitle}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveTitle();
+                      if (e.key === "Escape") setEditingTitle(false);
+                    }}
+                    className={styles.titleInput}
+                  />
+                ) : (
+                  <h2
+                    className={styles.playlistTitle}
+                    onClick={() => {
+                      setTitleDraft(activePlaylist.name);
+                      setEditingTitle(true);
+                    }}
+                    title="Click to rename"
+                  >
+                    {activePlaylist.name}
+                  </h2>
+                )}
+                <button
+                  className={`${styles.headerPinBtn} ${activePlaylist.pinned ? styles.headerPinActive : ""}`}
+                  onClick={() => togglePlaylistPin(activePlaylist.id)}
+                  title={activePlaylist.pinned ? "Unpin" : "Pin playlist"}
+                >
+                  <svg width="11" height="11" viewBox="0 0 10 10" fill={activePlaylist.pinned ? "currentColor" : "none"}>
+                    <path d="M6.5 1L9 3.5 6.5 6H5L3.5 8.5 1.5 6.5 4 5V3.5L6.5 1z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+
+              {editingDesc ? (
+                <input
+                  ref={descInputRef}
+                  type="text"
+                  value={descDraft}
+                  onChange={(e) => setDescDraft(e.target.value)}
+                  onBlur={handleSaveDesc}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveDesc();
+                    if (e.key === "Escape") setEditingDesc(false);
+                  }}
+                  className={styles.descInput}
+                  placeholder="Add a description..."
+                />
+              ) : (
+                <p
+                  className={`${styles.playlistDesc} ${!activePlaylist.description ? styles.descPlaceholder : ""}`}
+                  onClick={() => {
+                    setDescDraft(activePlaylist.description);
+                    setEditingDesc(true);
+                  }}
+                >
+                  {activePlaylist.description || "Add a description..."}
+                </p>
+              )}
+
+              <span className={styles.playlistMeta}>
+                {activePlaylist.trackCount} track{activePlaylist.trackCount !== 1 ? "s" : ""}
+                {activePlaylistTracks.length > 0 && ` · ${formatTotalDuration(activePlaylistTracks)}`}
+                {activePlaylist.updatedAt && ` · Updated ${timeAgo(activePlaylist.updatedAt)}`}
+              </span>
+            </div>
+
+            {/* Playlist search */}
+            <div className={styles.playlistSearchWrap}>
+              <svg className={styles.searchIcon} width="12" height="12" viewBox="0 0 14 14" fill="none">
+                <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2" />
+                <path d="M9.5 9.5L13 13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
+              <input
+                type="text"
+                className={styles.searchInput}
+                placeholder="Filter playlist..."
+                value={playlistSearchQuery}
+                onChange={handlePlaylistSearch}
+              />
+              {playlistSearchQuery && (
+                <span className={styles.resultCount}>
+                  {filteredPlaylistTracks.length} / {activePlaylistTracks.length}
+                </span>
+              )}
+            </div>
           </div>
         ) : viewTitle ? (
           <div className={styles.playlistHeader}>

@@ -52,3 +52,22 @@ pub fn get_playlist_tracks(playlist_id: i64, db: State<'_, DbConn>) -> Result<Ve
     let conn = db.lock().map_err(|e| e.to_string())?;
     queries::get_playlist_tracks(&conn, playlist_id)
 }
+
+#[tauri::command]
+pub fn update_playlist_meta(
+    id: i64,
+    name: String,
+    description: String,
+    pinned: bool,
+    cover_track_path: Option<String>,
+    db: State<'_, DbConn>,
+) -> Result<Playlist, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    queries::update_playlist_meta(&conn, id, &name, &description, pinned, cover_track_path.as_deref())
+}
+
+#[tauri::command]
+pub fn toggle_playlist_pin(id: i64, db: State<'_, DbConn>) -> Result<Playlist, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    queries::toggle_playlist_pin(&conn, id)
+}
