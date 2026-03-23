@@ -1,3 +1,4 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLibraryStore } from "../../stores/libraryStore";
 import { usePlayerStore } from "../../stores/playerStore";
@@ -42,6 +43,9 @@ interface ContextMenuState {
   trackPath: string;
 }
 
+/** Matches typical .row td line-height + vertical padding for virtual sizing */
+const TRACK_ROW_ESTIMATE_PX = 36;
+
 export function TrackList() {
   const { filteredTracks, searchQuery, setSearchQuery, sortField, sortDir, setSort } =
     useLibraryStore();
@@ -59,6 +63,7 @@ export function TrackList() {
   } = usePlaylistStore();
 
   const searchRef = useRef<HTMLInputElement>(null);
+  const tableWrapRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editingPath, setEditingPath] = useState<string | null>(null);
@@ -73,6 +78,14 @@ export function TrackList() {
     viewMode === "favorites" ? favoriteTracks :
     viewMode === "recentPlays" ? recentTracks :
     filteredTracks;
+
+  const rowVirtualizer = useVirtualizer({
+    count: displayTracks.length,
+    getScrollElement: () => tableWrapRef.current,
+    estimateSize: () => TRACK_ROW_ESTIMATE_PX,
+    overscan: 12,
+    getItemKey: (index) => displayTracks[index]?.id ?? index,
+  });
 
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId);
 
@@ -94,7 +107,7 @@ export function TrackList() {
       const value = e.target.value;
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        setSearchQuery(value);
+        void setSearchQuery(value);
       }, 150);
     },
     [setSearchQuery]
@@ -222,7 +235,7 @@ export function TrackList() {
         )}
       </div>
 
-      <div className={styles.tableWrap}>
+      <div className={styles.tableWrap} ref={tableWrapRef}>
         <table className={styles.table}>
           <thead>
             <tr>
@@ -247,72 +260,88 @@ export function TrackList() {
               {isPlaylistView && <th className={styles.thAction} />}
             </tr>
           </thead>
-          <tbody>
-              {displayTracks.map((track, i) => {
-                const isCurrent = currentTrack === track.path;
-                const isFav = track.favorite;
-              return (
-                <tr
-                  key={`${track.id}-${i}`}
-                  className={`${styles.row} ${isCurrent ? styles.playing : ""}`}
-                  onDoubleClick={() => handlePlay(i)}
-                  onContextMenu={(e) => handleContextMenu(e, track.id, track.path)}
-                >
-                  <td className={styles.cellNum}>
-                    {isCurrent && isPlaying ? (
-                      <EqIndicator />
-                    ) : (
-                      <span className={isCurrent ? styles.numPlaying : styles.num}>
-                        {i + 1}
-                      </span>
-                    )}
-                  </td>
-                  <td className={styles.cellTitle}>
-                    <span className={isCurrent ? styles.titlePlaying : ""}>
-                      {track.title ?? "Unknown"}
-                    </span>
-                  </td>
-                  <td className={styles.cellArtist}>
-                    {track.artist ?? "Unknown Artist"}
-                  </td>
-                  <td className={styles.cellAlbum}>
-                    {track.album ?? "—"}
-                  </td>
-                  <td className={styles.cellFav}>
-                    <button
-                      className={`${styles.favBtn} ${isFav ? styles.favActive : ""}`}
-                      onClick={(e) => handleToggleFavorite(e, track.id)}
-                      title={isFav ? "Remove from favorites" : "Add to favorites"}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 15 15" fill={isFav ? "currentColor" : "none"}>
-                        <path d="M7.5 13l-5.2-5.4A3.2 3.2 0 017.5 3.1a3.2 3.2 0 015.2 4.5L7.5 13z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-                      </svg>
-                    </button>
-                  </td>
-                  <td className={styles.cellDuration}>
-                    {formatDuration(track.durationMs)}
-                  </td>
-                  {isPlaylistView && activePlaylistId && (
-                    <td className={styles.cellAction}>
-                      <button
-                        className={styles.removeBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeTrackFromPlaylist(activePlaylistId, track.id);
-                        }}
-                        title="Remove from playlist"
-                      >
-                        <svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
-                          <path d="M2 2l6 6M8 2l-6 6" />
-                        </svg>
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
         </table>
+        <div
+          className={styles.virtualBody}
+          style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+        >
+          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+            const i = virtualRow.index;
+            const track = displayTracks[i]!;
+            const isCurrent = currentTrack === track.path;
+            const isFav = track.favorite;
+            return (
+              <div
+                key={track.id}
+                className={styles.virtualRowHost}
+                data-index={virtualRow.index}
+                ref={rowVirtualizer.measureElement}
+                style={{ transform: `translateY(${virtualRow.start}px)` }}
+              >
+                <table className={styles.table} style={{ tableLayout: "fixed", width: "100%" }}>
+                  <tbody>
+                    <tr
+                      className={`${styles.row} ${isCurrent ? styles.playing : ""}`}
+                      onDoubleClick={() => handlePlay(i)}
+                      onContextMenu={(e) => handleContextMenu(e, track.id, track.path)}
+                    >
+                      <td className={styles.cellNum}>
+                        {isCurrent && isPlaying ? (
+                          <EqIndicator />
+                        ) : (
+                          <span className={isCurrent ? styles.numPlaying : styles.num}>
+                            {i + 1}
+                          </span>
+                        )}
+                      </td>
+                      <td className={styles.cellTitle}>
+                        <span className={isCurrent ? styles.titlePlaying : ""}>
+                          {track.title ?? "Unknown"}
+                        </span>
+                      </td>
+                      <td className={styles.cellArtist}>
+                        {track.artist ?? "Unknown Artist"}
+                      </td>
+                      <td className={styles.cellAlbum}>
+                        {track.album ?? "—"}
+                      </td>
+                      <td className={styles.cellFav}>
+                        <button
+                          className={`${styles.favBtn} ${isFav ? styles.favActive : ""}`}
+                          onClick={(e) => handleToggleFavorite(e, track.id)}
+                          title={isFav ? "Remove from favorites" : "Add to favorites"}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 15 15" fill={isFav ? "currentColor" : "none"}>
+                            <path d="M7.5 13l-5.2-5.4A3.2 3.2 0 017.5 3.1a3.2 3.2 0 015.2 4.5L7.5 13z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      </td>
+                      <td className={styles.cellDuration}>
+                        {formatDuration(track.durationMs)}
+                      </td>
+                      {isPlaylistView && activePlaylistId && (
+                        <td className={styles.cellAction}>
+                          <button
+                            className={styles.removeBtn}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeTrackFromPlaylist(activePlaylistId, track.id);
+                            }}
+                            title="Remove from playlist"
+                          >
+                            <svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+                              <path d="M2 2l6 6M8 2l-6 6" />
+                            </svg>
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Context menu */}

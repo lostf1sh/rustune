@@ -1,7 +1,62 @@
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Mutex, OnceLock};
+
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::picture::PictureType;
 use lofty::tag::Accessor;
 use serde::{Deserialize, Serialize};
+
+const ALBUM_ART_CACHE_CAP: usize = 64;
+
+struct AlbumArtCache {
+    order: VecDeque<String>,
+    entries: HashMap<String, AlbumArt>,
+}
+
+impl AlbumArtCache {
+    fn new() -> Self {
+        Self {
+            order: VecDeque::new(),
+            entries: HashMap::new(),
+        }
+    }
+
+    fn get(&self, path: &str) -> Option<AlbumArt> {
+        self.entries.get(path).cloned()
+    }
+
+    fn insert(&mut self, path: String, art: AlbumArt) {
+        if self.entries.contains_key(&path) {
+            self.entries.insert(path, art);
+            return;
+        }
+        while self.entries.len() >= ALBUM_ART_CACHE_CAP {
+            if let Some(k) = self.order.pop_front() {
+                self.entries.remove(&k);
+            }
+        }
+        self.order.push_back(path.clone());
+        self.entries.insert(path, art);
+    }
+
+    fn remove(&mut self, path: &str) {
+        if self.entries.remove(path).is_some() {
+            self.order.retain(|p| p != path);
+        }
+    }
+}
+
+fn album_art_cache() -> &'static Mutex<AlbumArtCache> {
+    static CACHE: OnceLock<Mutex<AlbumArtCache>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(AlbumArtCache::new()))
+}
+
+/// Call after embedding art or tag writes so the next read reflects disk.
+pub fn invalidate_album_art_cache(path: &str) {
+    if let Ok(mut g) = album_art_cache().lock() {
+        g.remove(path);
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -36,7 +91,7 @@ pub struct TagUpdate {
     pub disc_number: Option<u32>,
 }
 
-pub fn get_album_art(path: &str) -> Result<Option<AlbumArt>, String> {
+fn read_album_art_from_disk(path: &str) -> Result<Option<AlbumArt>, String> {
     let tagged = lofty::read_from_path(path).map_err(|e| e.to_string())?;
     let tag = tagged.primary_tag().or_else(|| tagged.first_tag());
 
@@ -59,6 +114,22 @@ pub fn get_album_art(path: &str) -> Result<Option<AlbumArt>, String> {
     }
 
     Ok(None)
+}
+
+pub fn get_album_art(path: &str) -> Result<Option<AlbumArt>, String> {
+    if let Ok(cache) = album_art_cache().lock() {
+        if let Some(hit) = cache.get(path) {
+            return Ok(Some(hit));
+        }
+    }
+
+    let decoded = read_album_art_from_disk(path)?;
+    if let Some(ref art) = decoded {
+        if let Ok(mut cache) = album_art_cache().lock() {
+            cache.insert(path.to_string(), art.clone());
+        }
+    }
+    Ok(decoded)
 }
 
 pub fn read_tags(path: &str) -> Result<TagInfo, String> {

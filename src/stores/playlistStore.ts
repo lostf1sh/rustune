@@ -1,5 +1,10 @@
 import { create } from "zustand";
 import { commands, type Playlist, type Track } from "../lib/commands";
+import { useLibraryStore } from "./libraryStore";
+
+function albumTracksCacheKey(album: string, albumArtist: string | null): string {
+  return `${album}\0${albumArtist ?? ""}`;
+}
 
 export type ViewMode = "library" | "playlist" | "artists" | "albums" | "favorites" | "recentPlays" | "settings";
 
@@ -16,6 +21,8 @@ interface PlaylistStore {
   // Album view
   selectedAlbum: { album: string; albumArtist: string | null } | null;
   selectedAlbumTracks: Track[];
+  /** Avoid repeated `get_album_tracks` IPC when re-opening the same album. */
+  albumTracksCache: Map<string, { tracks: Track[]; libraryRevision: number }>;
 
   // Favorites / Recent
   favoriteTracks: Track[];
@@ -60,6 +67,7 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   selectedArtistTracks: [],
   selectedAlbum: null,
   selectedAlbumTracks: [],
+  albumTracksCache: new Map(),
   favoriteTracks: [],
   recentTracks: [],
 
@@ -128,8 +136,25 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   },
 
   selectAlbum: async (album: string, albumArtist: string | null) => {
+    const key = albumTracksCacheKey(album, albumArtist);
+    const rev = useLibraryStore.getState().libraryRevision;
+    const hit = get().albumTracksCache.get(key);
+    if (hit && hit.libraryRevision === rev) {
+      set({
+        selectedAlbum: { album, albumArtist },
+        selectedAlbumTracks: hit.tracks,
+      });
+      return;
+    }
+
     const tracks = await commands.getAlbumTracks(album, albumArtist);
-    set({ selectedAlbum: { album, albumArtist }, selectedAlbumTracks: tracks });
+    const nextCache = new Map(get().albumTracksCache);
+    nextCache.set(key, { tracks, libraryRevision: rev });
+    set({
+      selectedAlbum: { album, albumArtist },
+      selectedAlbumTracks: tracks,
+      albumTracksCache: nextCache,
+    });
   },
 
   clearAlbumSelection: () => {
@@ -183,11 +208,18 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
     }
 
     if (viewMode === "albums" && selectedAlbum) {
+      const rev = useLibraryStore.getState().libraryRevision;
       const tracks = await commands.getAlbumTracks(
         selectedAlbum.album,
         selectedAlbum.albumArtist
       );
-      set({ selectedAlbumTracks: tracks });
+      const key = albumTracksCacheKey(
+        selectedAlbum.album,
+        selectedAlbum.albumArtist
+      );
+      const nextCache = new Map(get().albumTracksCache);
+      nextCache.set(key, { tracks, libraryRevision: rev });
+      set({ selectedAlbumTracks: tracks, albumTracksCache: nextCache });
     }
   },
 }));

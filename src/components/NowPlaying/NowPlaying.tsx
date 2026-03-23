@@ -158,8 +158,9 @@ export function NowPlaying() {
     toggleNowPlaying,
   } = usePlayerStore();
 
-  const tracks = useLibraryStore((s) => s.tracks);
-  const meta = tracks.find((t) => t.path === currentTrack);
+  const trackMeta = useLibraryStore((s) =>
+    currentTrack ? s.trackByPath[currentTrack] : undefined
+  );
 
   const [art, setArt] = useState<AlbumArt | null>(null);
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null);
@@ -188,22 +189,37 @@ export function NowPlaying() {
         setArtPath(currentTrack);
       }
     });
+  }, [currentTrack]);
 
-    const trackMeta = tracks.find((t) => t.path === currentTrack);
+  useEffect(() => {
+    if (!currentTrack) return;
     const autoFetch = useSettingsStore.getState().settings.autoFetchLyrics;
-    if (autoFetch && trackMeta?.title && trackMeta?.artist) {
-      const dur = trackMeta.durationMs ? trackMeta.durationMs / 1000 : durationSecs;
-      commands
-        .fetchLyrics(currentTrack!, trackMeta.title, trackMeta.artist, trackMeta.album ?? "", dur)
-        .then((result) => {
-          if (lastPathRef.current === currentTrack) {
-            setLyrics(result);
-            setLyricsPath(currentTrack);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [currentTrack, tracks, durationSecs]);
+    if (!autoFetch || !trackMeta?.title || !trackMeta?.artist) return;
+
+    let cancelled = false;
+    const dur = trackMeta.durationMs ? trackMeta.durationMs / 1000 : durationSecs;
+    commands
+      .fetchLyrics(currentTrack, trackMeta.title, trackMeta.artist, trackMeta.album ?? "", dur)
+      .then((result) => {
+        if (!cancelled && lastPathRef.current === currentTrack) {
+          setLyrics(result);
+          setLyricsPath(currentTrack);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentTrack,
+    trackMeta?.id,
+    trackMeta?.title,
+    trackMeta?.artist,
+    trackMeta?.album,
+    trackMeta?.durationMs,
+    durationSecs,
+  ]);
 
   const handleSeek = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => seek(parseFloat(e.target.value)),
@@ -218,13 +234,13 @@ export function NowPlaying() {
     [seek]
   );
 
-  const title = meta?.title ?? extractFileName(currentTrack);
-  const artist = meta?.artist ?? "Unknown Artist";
-  const album = meta?.album ?? null;
-  const year = meta?.year ?? null;
-  const format = meta?.format ?? null;
-  const sampleRate = meta?.sampleRate ? `${(meta.sampleRate / 1000).toFixed(1)} kHz` : null;
-  const bitDepth = meta?.bitDepth ? `${meta.bitDepth}-bit` : null;
+  const title = trackMeta?.title ?? extractFileName(currentTrack);
+  const artist = trackMeta?.artist ?? "Unknown Artist";
+  const album = trackMeta?.album ?? null;
+  const year = trackMeta?.year ?? null;
+  const format = trackMeta?.format ?? null;
+  const sampleRate = trackMeta?.sampleRate ? `${(trackMeta.sampleRate / 1000).toFixed(1)} kHz` : null;
+  const bitDepth = trackMeta?.bitDepth ? `${trackMeta.bitDepth}-bit` : null;
   const techInfo = [format, sampleRate, bitDepth].filter(Boolean).join(" · ");
   const progress = durationSecs > 0 ? (positionSecs / durationSecs) * 100 : 0;
 

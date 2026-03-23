@@ -11,6 +11,7 @@
   min-width: 220px;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   border-right: 1px solid var(--border);
   background: var(--bg);
 }
@@ -54,8 +55,26 @@
 
 .listScroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 4px 0;
+  position: relative;
+}
+
+.artistVirtualBody {
+  position: relative;
+  width: 100%;
+}
+
+.artistVirtualRowHost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.artistVirtualRowHost .artistItem {
+  animation: none;
 }
 
 .artistItem {
@@ -112,6 +131,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 .placeholder {
@@ -152,8 +172,25 @@
 /* ── Table (matches TrackList) ── */
 .tableWrap {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+.trackVirtualBody {
+  position: relative;
+  width: 100%;
+}
+
+.trackVirtualRowHost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.trackVirtualRowHost .row {
+  animation: none;
 }
 
 .table {

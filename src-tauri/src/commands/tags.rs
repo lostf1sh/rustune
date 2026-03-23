@@ -29,5 +29,7 @@ pub fn write_tags(
     let current_settings = settings.lock().map_err(|e| e.to_string())?.0.clone();
     scanner::rescan_file(&conn, &path, &current_settings)?;
 
+    editor::invalidate_album_art_cache(&path);
+
     Ok(())
 }

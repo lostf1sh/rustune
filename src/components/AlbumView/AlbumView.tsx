@@ -1,9 +1,10 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useState, useRef } from "react";
 import { usePlayerStore } from "../../stores/playerStore";
 import { usePlaylistStore } from "../../stores/playlistStore";
 import { useLibraryStore } from "../../stores/libraryStore";
 import { TagEditor } from "../TagEditor/TagEditor";
-import { commands, type AlbumInfo, type AlbumArt, type Track } from "../../lib/commands";
+import { commands, type AlbumInfo, type Track } from "../../lib/commands";
 import styles from "./AlbumView.module.css";
 
 function formatDuration(ms: number | null): string {
@@ -52,12 +53,15 @@ interface ContextMenuState {
   trackPath: string;
 }
 
+const ALBUM_TRACK_ROW_PX = 36;
+
 export function AlbumView() {
   const [albums, setAlbums] = useState<AlbumInfo[]>([]);
-  const [artCache, setArtCache] = useState<Map<string, AlbumArt | null>>(new Map());
   const [filter, setFilter] = useState("");
   const { playQueue, currentTrack, isPlaying } = usePlayerStore();
-  const libraryTracks = useLibraryStore((s) => s.tracks);
+  const libraryRevision = useLibraryStore((s) => s.libraryRevision);
+  const albumGridArtByKey = useLibraryStore((s) => s.albumGridArtByKey);
+  const setAlbumGridArt = useLibraryStore((s) => s.setAlbumGridArt);
   const {
     selectedAlbum,
     selectedAlbumTracks,
@@ -71,29 +75,41 @@ export function AlbumView() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editingPath, setEditingPath] = useState<string | null>(null);
   const artLoadRef = useRef(new Set<string>());
+  const albumTableWrapRef = useRef<HTMLDivElement>(null);
+
+  const albumRowVirtualizer = useVirtualizer({
+    count: selectedAlbumTracks.length,
+    getScrollElement: () => albumTableWrapRef.current,
+    estimateSize: () => ALBUM_TRACK_ROW_PX,
+    overscan: 12,
+    getItemKey: (index) => selectedAlbumTracks[index]?.id ?? index,
+  });
 
   useEffect(() => {
     commands.getAlbums().then(setAlbums);
-  }, [libraryTracks]);
+  }, [libraryRevision]);
 
   useEffect(() => {
     if (selectedAlbum) {
-      selectAlbum(selectedAlbum.album, selectedAlbum.albumArtist);
+      void selectAlbum(selectedAlbum.album, selectedAlbum.albumArtist);
     }
-  }, [selectedAlbum, selectAlbum, libraryTracks]);
+  }, [selectedAlbum, selectAlbum, libraryRevision]);
 
-  // Lazy load art for visible albums
+  // Lazy-load covers into global store so grid/detail survive leaving Albums view.
   useEffect(() => {
     for (const album of albums) {
       if (!album.artTrackPath) continue;
       const key = `${album.album}||${album.albumArtist ?? ""}`;
-      if (artCache.has(key) || artLoadRef.current.has(key)) continue;
+      const artByKey = useLibraryStore.getState().albumGridArtByKey;
+      if (Object.prototype.hasOwnProperty.call(artByKey, key)) continue;
+      if (artLoadRef.current.has(key)) continue;
       artLoadRef.current.add(key);
       commands.getAlbumArt(album.artTrackPath).then((art) => {
-        setArtCache((prev) => new Map(prev).set(key, art));
+        artLoadRef.current.delete(key);
+        setAlbumGridArt(key, art ?? null);
       });
     }
-  }, [albums, artCache]);
+  }, [albums, setAlbumGridArt]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -122,7 +138,10 @@ export function AlbumView() {
 
   const getArt = (album: AlbumInfo) => {
     const key = `${album.album}||${album.albumArtist ?? ""}`;
-    return artCache.get(key) ?? null;
+    if (!Object.prototype.hasOwnProperty.call(albumGridArtByKey, key)) {
+      return null;
+    }
+    return albumGridArtByKey[key] ?? null;
   };
 
   // ── Album detail view ──
@@ -165,7 +184,7 @@ export function AlbumView() {
           </div>
         </div>
 
-        <div className={styles.tableWrap}>
+        <div className={styles.tableWrap} ref={albumTableWrapRef}>
           <table className={styles.table}>
             <thead>
               <tr>
@@ -180,37 +199,53 @@ export function AlbumView() {
                 </th>
               </tr>
             </thead>
-            <tbody>
-              {selectedAlbumTracks.map((track, i) => {
-                const isCurrent = currentTrack === track.path;
-                return (
-                  <tr
-                    key={`${track.id}-${i}`}
-                    className={`${styles.row} ${isCurrent ? styles.playing : ""}`}
-                    onDoubleClick={() => handlePlay(i)}
-                    onContextMenu={(e) => handleContextMenu(e, track)}
-                  >
-                    <td className={styles.cellNum}>
-                      {isCurrent && isPlaying ? (
-                        <EqIndicator />
-                      ) : (
-                        <span className={isCurrent ? styles.numPlaying : styles.num}>
-                          {track.trackNumber ?? i + 1}
-                        </span>
-                      )}
-                    </td>
-                    <td className={styles.cellTitle}>
-                      <span className={isCurrent ? styles.titlePlaying : ""}>
-                        {track.title ?? "Unknown"}
-                      </span>
-                    </td>
-                    <td className={styles.cellArtist}>{track.artist ?? "Unknown Artist"}</td>
-                    <td className={styles.cellDuration}>{formatDuration(track.durationMs)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
           </table>
+          <div
+            className={styles.virtualBody}
+            style={{ height: `${albumRowVirtualizer.getTotalSize()}px` }}
+          >
+            {albumRowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const i = virtualRow.index;
+              const track = selectedAlbumTracks[i]!;
+              const isCurrent = currentTrack === track.path;
+              return (
+                <div
+                  key={track.id}
+                  className={styles.virtualRowHost}
+                  data-index={virtualRow.index}
+                  ref={albumRowVirtualizer.measureElement}
+                  style={{ transform: `translateY(${virtualRow.start}px)` }}
+                >
+                  <table className={styles.table} style={{ tableLayout: "fixed", width: "100%" }}>
+                    <tbody>
+                      <tr
+                        className={`${styles.row} ${isCurrent ? styles.playing : ""}`}
+                        onDoubleClick={() => handlePlay(i)}
+                        onContextMenu={(e) => handleContextMenu(e, track)}
+                      >
+                        <td className={styles.cellNum}>
+                          {isCurrent && isPlaying ? (
+                            <EqIndicator />
+                          ) : (
+                            <span className={isCurrent ? styles.numPlaying : styles.num}>
+                              {track.trackNumber ?? i + 1}
+                            </span>
+                          )}
+                        </td>
+                        <td className={styles.cellTitle}>
+                          <span className={isCurrent ? styles.titlePlaying : ""}>
+                            {track.title ?? "Unknown"}
+                          </span>
+                        </td>
+                        <td className={styles.cellArtist}>{track.artist ?? "Unknown Artist"}</td>
+                        <td className={styles.cellDuration}>{formatDuration(track.durationMs)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Context menu */}

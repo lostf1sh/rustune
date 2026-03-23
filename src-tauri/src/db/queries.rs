@@ -123,6 +123,26 @@ pub fn get_all_tracks(conn: &Connection) -> Result<Vec<Track>, String> {
     Ok(tracks)
 }
 
+pub fn get_tracks_page(conn: &Connection, offset: i64, limit: i64) -> Result<Vec<Track>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, path, title, artist, album, album_artist, genre,
+                    track_number, disc_number, year, duration_ms, file_size,
+                    format, sample_rate, bit_depth, has_art, COALESCE(favorite, 0) as favorite
+             FROM tracks ORDER BY album_artist, album, disc_number, track_number, title
+             LIMIT ?1 OFFSET ?2",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let tracks = stmt
+        .query_map(params![limit, offset], row_to_track)
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(tracks)
+}
+
 pub fn search_tracks(conn: &Connection, query: &str) -> Result<Vec<Track>, String> {
     let pattern = format!("%{}%", query);
     let mut stmt = conn

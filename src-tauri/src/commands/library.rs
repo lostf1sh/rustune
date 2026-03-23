@@ -33,6 +33,18 @@ pub fn get_tracks(db: State<'_, DbConn>) -> Result<Vec<Track>, String> {
 }
 
 #[tauri::command]
+pub fn get_tracks_page(
+    offset: i64,
+    limit: i64,
+    db: State<'_, DbConn>,
+) -> Result<Vec<Track>, String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    let limit = limit.clamp(1, 10_000);
+    let offset = offset.max(0);
+    queries::get_tracks_page(&conn, offset, limit)
+}
+
+#[tauri::command]
 pub fn search_tracks(query: String, db: State<'_, DbConn>) -> Result<Vec<Track>, String> {
     let conn = db.lock().map_err(|e| e.to_string())?;
     queries::search_tracks(&conn, &query)

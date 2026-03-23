@@ -50,8 +50,25 @@
 /* Table */
 .tableWrap {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+.virtualBody {
+  position: relative;
+  width: 100%;
+}
+
+.virtualRowHost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.virtualRowHost .row {
+  animation: none;
 }
 
 .table {

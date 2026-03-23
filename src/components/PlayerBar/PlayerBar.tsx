@@ -34,8 +34,9 @@ export function PlayerBar() {
     toggleNowPlaying,
   } = usePlayerStore();
 
-  const tracks = useLibraryStore((s) => s.tracks);
-  const trackMeta = tracks.find((t) => t.path === currentTrack);
+  const trackMeta = useLibraryStore((s) =>
+    currentTrack ? s.trackByPath[currentTrack] : undefined
+  );
 
   const displayTitle = trackMeta?.title ?? extractFileName(currentTrack);
   const displayArtist = trackMeta?.artist ?? null;

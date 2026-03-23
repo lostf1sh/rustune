@@ -130,6 +130,8 @@ export const commands = {
 
   scanFolder: (folder: string) => invoke<number>("scan_folder", { folder }),
   getTracks: () => invoke<Track[]>("get_tracks"),
+  getTracksPage: (offset: number, limit: number) =>
+    invoke<Track[]>("get_tracks_page", { offset, limit }),
   searchTracks: (query: string) => invoke<Track[]>("search_tracks", { query }),
   getTrackCount: () => invoke<number>("get_track_count"),
   getLibraryRoots: () => invoke<LibraryRoot[]>("get_library_roots"),

@@ -1,3 +1,4 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useState, useRef } from "react";
 import { usePlayerStore } from "../../stores/playerStore";
 import { usePlaylistStore } from "../../stores/playlistStore";
@@ -31,6 +32,9 @@ interface ContextMenuState {
   trackPath: string;
 }
 
+const ARTIST_LIST_ROW_PX = 30;
+const ARTIST_TRACK_ROW_PX = 36;
+
 export function ArtistView() {
   const [artists, setArtists] = useState<ArtistInfo[]>([]);
   const [filter, setFilter] = useState("");
@@ -43,6 +47,8 @@ export function ArtistView() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [editingPath, setEditingPath] = useState<string | null>(null);
   const filterRef = useRef<HTMLInputElement>(null);
+  const artistListRef = useRef<HTMLDivElement>(null);
+  const artistTrackTableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     commands.getArtists().then(setArtists);
@@ -64,6 +70,22 @@ export function ArtistView() {
   const filtered = filter
     ? artists.filter((a) => a.name.toLowerCase().includes(filter.toLowerCase()))
     : artists;
+
+  const artistListVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => artistListRef.current,
+    estimateSize: () => ARTIST_LIST_ROW_PX,
+    overscan: 16,
+    getItemKey: (index) => filtered[index]?.name ?? index,
+  });
+
+  const artistTrackVirtualizer = useVirtualizer({
+    count: selectedArtistTracks.length,
+    getScrollElement: () => artistTrackTableRef.current,
+    estimateSize: () => ARTIST_TRACK_ROW_PX,
+    overscan: 12,
+    getItemKey: (index) => selectedArtistTracks[index]?.id ?? index,
+  });
 
   const handlePlay = async (index: number) => {
     const paths = selectedArtistTracks.map((t) => t.path);
@@ -94,21 +116,37 @@ export function ArtistView() {
           />
           <span className={styles.artistCount}>{filtered.length}</span>
         </div>
-        <div className={styles.listScroll}>
-          {filtered.map((artist) => (
-            <button
-              key={artist.name}
-              className={`${styles.artistItem} ${selectedArtist === artist.name ? styles.selected : ""}`}
-              onClick={() => selectArtist(artist.name)}
-            >
-              <span className={styles.artistName}>{artist.name}</span>
-              <span className={styles.trackBadge}>{artist.trackCount}</span>
-            </button>
-          ))}
-          {filtered.length === 0 && (
+        <div className={styles.listScroll} ref={artistListRef}>
+          {filtered.length === 0 ? (
             <p className={styles.emptyHint}>
               {filter ? "No artists match" : "No artists"}
             </p>
+          ) : (
+            <div
+              className={styles.artistVirtualBody}
+              style={{ height: `${artistListVirtualizer.getTotalSize()}px` }}
+            >
+              {artistListVirtualizer.getVirtualItems().map((virtualRow) => {
+                const artist = filtered[virtualRow.index]!;
+                return (
+                  <div
+                    key={artist.name}
+                    className={styles.artistVirtualRowHost}
+                    data-index={virtualRow.index}
+                    ref={artistListVirtualizer.measureElement}
+                    style={{ transform: `translateY(${virtualRow.start}px)` }}
+                  >
+                    <button
+                      className={`${styles.artistItem} ${selectedArtist === artist.name ? styles.selected : ""}`}
+                      onClick={() => selectArtist(artist.name)}
+                    >
+                      <span className={styles.artistName}>{artist.name}</span>
+                      <span className={styles.trackBadge}>{artist.trackCount}</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
@@ -131,7 +169,7 @@ export function ArtistView() {
                 {selectedArtistTracks.length} track{selectedArtistTracks.length !== 1 ? "s" : ""}
               </span>
             </div>
-            <div className={styles.tableWrap}>
+            <div className={styles.tableWrap} ref={artistTrackTableRef}>
               <table className={styles.table}>
                 <thead>
                   <tr>
@@ -147,38 +185,54 @@ export function ArtistView() {
                     </th>
                   </tr>
                 </thead>
-                <tbody>
-                  {selectedArtistTracks.map((track, i) => {
-                    const isCurrent = currentTrack === track.path;
-                    return (
-                      <tr
-                        key={`${track.id}-${i}`}
-                        className={`${styles.row} ${isCurrent ? styles.playing : ""}`}
-                        onDoubleClick={() => handlePlay(i)}
-                        onContextMenu={(e) => handleContextMenu(e, track)}
-                      >
-                        <td className={styles.cellNum}>
-                          {isCurrent && isPlaying ? (
-                            <EqIndicator />
-                          ) : (
-                            <span className={isCurrent ? styles.numPlaying : styles.num}>
-                              {i + 1}
-                            </span>
-                          )}
-                        </td>
-                        <td className={styles.cellTitle}>
-                          <span className={isCurrent ? styles.titlePlaying : ""}>
-                            {track.title ?? "Unknown"}
-                          </span>
-                        </td>
-                        <td className={styles.cellArtist}>{track.artist ?? "Unknown Artist"}</td>
-                        <td className={styles.cellAlbum}>{track.album ?? "—"}</td>
-                        <td className={styles.cellDuration}>{formatDuration(track.durationMs)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
               </table>
+              <div
+                className={styles.trackVirtualBody}
+                style={{ height: `${artistTrackVirtualizer.getTotalSize()}px` }}
+              >
+                {artistTrackVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const i = virtualRow.index;
+                  const track = selectedArtistTracks[i]!;
+                  const isCurrent = currentTrack === track.path;
+                  return (
+                    <div
+                      key={track.id}
+                      className={styles.trackVirtualRowHost}
+                      data-index={virtualRow.index}
+                      ref={artistTrackVirtualizer.measureElement}
+                      style={{ transform: `translateY(${virtualRow.start}px)` }}
+                    >
+                      <table className={styles.table} style={{ tableLayout: "fixed", width: "100%" }}>
+                        <tbody>
+                          <tr
+                            className={`${styles.row} ${isCurrent ? styles.playing : ""}`}
+                            onDoubleClick={() => handlePlay(i)}
+                            onContextMenu={(e) => handleContextMenu(e, track)}
+                          >
+                            <td className={styles.cellNum}>
+                              {isCurrent && isPlaying ? (
+                                <EqIndicator />
+                              ) : (
+                                <span className={isCurrent ? styles.numPlaying : styles.num}>
+                                  {i + 1}
+                                </span>
+                              )}
+                            </td>
+                            <td className={styles.cellTitle}>
+                              <span className={isCurrent ? styles.titlePlaying : ""}>
+                                {track.title ?? "Unknown"}
+                              </span>
+                            </td>
+                            <td className={styles.cellArtist}>{track.artist ?? "Unknown Artist"}</td>
+                            <td className={styles.cellAlbum}>{track.album ?? "—"}</td>
+                            <td className={styles.cellDuration}>{formatDuration(track.durationMs)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </>
         )}

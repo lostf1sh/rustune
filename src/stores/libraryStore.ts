@@ -1,11 +1,23 @@
 import { create } from "zustand";
-import { commands, type LibraryRoot, type Track } from "../lib/commands";
+import {
+  commands,
+  type AlbumArt,
+  type LibraryRoot,
+  type Track,
+} from "../lib/commands";
+
+/** Dismiss stale `searchTracks` results when the user types quickly. */
+let librarySearchSeq = 0;
 
 type SortField = "title" | "artist" | "album" | "duration" | "trackNumber";
 type SortDir = "asc" | "desc";
 
+const TRACKS_PAGE_SIZE = 2000;
+
 interface LibraryStore {
   tracks: Track[];
+  /** O(1) metadata lookup for playback bar / queue (rebuilt when `tracks` loads). */
+  trackByPath: Record<string, Track>;
   filteredTracks: Track[];
   searchQuery: string;
   sortField: SortField;
@@ -13,13 +25,18 @@ interface LibraryStore {
   isScanning: boolean;
   trackCount: number;
   roots: LibraryRoot[];
+  /** Bumps on each full library reload; album/track caches compare against this. */
+  libraryRevision: number;
+  /** Album grid / detail cover art by `album||albumArtist`; cleared when library reloads. */
+  albumGridArtByKey: Record<string, AlbumArt | null>;
 
   loadTracks: () => Promise<void>;
   loadRoots: () => Promise<void>;
   scanFolder: (folder: string) => Promise<number>;
   removeRoot: (path: string) => Promise<void>;
-  setSearchQuery: (query: string) => void;
+  setSearchQuery: (query: string) => Promise<void>;
   setSort: (field: SortField) => void;
+  setAlbumGridArt: (key: string, art: AlbumArt | null) => void;
 }
 
 function sortTracks(tracks: Track[], field: SortField, dir: SortDir): Track[] {
@@ -56,19 +73,9 @@ function sortTracks(tracks: Track[], field: SortField, dir: SortDir): Track[] {
   });
 }
 
-function filterTracks(tracks: Track[], query: string): Track[] {
-  if (!query.trim()) return tracks;
-  const q = query.toLowerCase();
-  return tracks.filter(
-    (t) =>
-      t.title?.toLowerCase().includes(q) ||
-      t.artist?.toLowerCase().includes(q) ||
-      t.album?.toLowerCase().includes(q)
-  );
-}
-
 export const useLibraryStore = create<LibraryStore>((set, get) => ({
   tracks: [],
+  trackByPath: {},
   filteredTracks: [],
   searchQuery: "",
   sortField: "title",
@@ -76,13 +83,44 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   isScanning: false,
   trackCount: 0,
   roots: [],
+  libraryRevision: 0,
+  albumGridArtByKey: {},
 
   loadTracks: async () => {
-    const tracks = await commands.getTracks();
+    const tracks: Track[] = [];
+    for (let offset = 0; ; offset += TRACKS_PAGE_SIZE) {
+      const chunk = await commands.getTracksPage(offset, TRACKS_PAGE_SIZE);
+      if (chunk.length === 0) break;
+      tracks.push(...chunk);
+      if (chunk.length < TRACKS_PAGE_SIZE) break;
+    }
+
+    const trackByPath: Record<string, Track> = {};
+    for (const t of tracks) {
+      trackByPath[t.path] = t;
+    }
+
     const { searchQuery, sortField, sortDir } = get();
-    const filtered = filterTracks(tracks, searchQuery);
+    const filtered =
+      searchQuery.trim() === ""
+        ? tracks
+        : await commands.searchTracks(searchQuery.trim());
     const sorted = sortTracks(filtered, sortField, sortDir);
-    set({ tracks, filteredTracks: sorted, trackCount: tracks.length });
+    const nextRev = get().libraryRevision + 1;
+    set({
+      tracks,
+      trackByPath,
+      filteredTracks: sorted,
+      trackCount: tracks.length,
+      libraryRevision: nextRev,
+      albumGridArtByKey: {},
+    });
+  },
+
+  setAlbumGridArt: (key: string, art: AlbumArt | null) => {
+    set((s) => ({
+      albumGridArtByKey: { ...s.albumGridArtByKey, [key]: art },
+    }));
   },
 
   loadRoots: async () => {
@@ -108,9 +146,14 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
     await get().loadTracks();
   },
 
-  setSearchQuery: (query: string) => {
-    const { tracks, sortField, sortDir } = get();
-    const filtered = filterTracks(tracks, query);
+  setSearchQuery: async (query: string) => {
+    const seq = ++librarySearchSeq;
+    const { sortField, sortDir } = get();
+    const filtered =
+      query.trim() === ""
+        ? get().tracks
+        : await commands.searchTracks(query.trim());
+    if (seq !== librarySearchSeq) return;
     const sorted = sortTracks(filtered, sortField, sortDir);
     set({ searchQuery: query, filteredTracks: sorted });
   },

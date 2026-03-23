@@ -17,6 +17,79 @@ const SUPPORTED_EXTENSIONS: &[&str] = &[
     "mp3", "flac", "wav", "ogg", "m4a", "aac", "opus", "wma", "ape", "wv", "aiff", "alac",
 ];
 
+/// Commit SQLite work periodically during scan to reduce fsync overhead while keeping
+/// per-file isolation via SAVEPOINT (a failed tag read does not abort prior tracks in the batch).
+const SCAN_TX_BATCH_SIZE: u32 = 200;
+
+struct ScanBatchTx<'a> {
+    conn: &'a Connection,
+    txn_open: bool,
+    committed_in_batch: u32,
+}
+
+impl<'a> ScanBatchTx<'a> {
+    fn new(conn: &'a Connection) -> Self {
+        Self {
+            conn,
+            txn_open: false,
+            committed_in_batch: 0,
+        }
+    }
+
+    fn ensure_transaction(&mut self) -> Result<(), String> {
+        if !self.txn_open {
+            self.conn
+                .execute("BEGIN IMMEDIATE", [])
+                .map_err(|e| e.to_string())?;
+            self.txn_open = true;
+        }
+        Ok(())
+    }
+
+    fn after_file_success(&mut self) -> Result<(), String> {
+        self.committed_in_batch += 1;
+        if self.committed_in_batch >= SCAN_TX_BATCH_SIZE {
+            self.conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
+            self.txn_open = false;
+            self.committed_in_batch = 0;
+        }
+        Ok(())
+    }
+
+    fn finish(self) -> Result<(), String> {
+        if self.txn_open {
+            self.conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+}
+
+fn extract_and_insert_in_savepoint(
+    conn: &Connection,
+    path: &Path,
+    ext: &str,
+    settings: &AppSettings,
+) -> Result<(), String> {
+    conn.execute("SAVEPOINT rustune_scan_file", [])
+        .map_err(|e| format!("savepoint: {e}"))?;
+    let result = extract_and_insert(conn, path, ext, settings);
+    match result {
+        Ok(()) => {
+            conn.execute("RELEASE SAVEPOINT rustune_scan_file", [])
+                .map_err(|e| format!("release savepoint: {e}"))?;
+            Ok(())
+        }
+        Err(e) => {
+            conn.execute(
+                "ROLLBACK TRANSACTION TO SAVEPOINT rustune_scan_file",
+                [],
+            )
+            .map_err(|rb| format!("rollback to savepoint: {rb}"))?;
+            Err(e)
+        }
+    }
+}
+
 pub fn scan_folder(
     conn: &Connection,
     folder: &str,
@@ -33,7 +106,17 @@ pub fn scan_folder(
 
     let mut count: u32 = 0;
     let mut seen_paths = HashSet::new();
-    scan_recursive(conn, path, app, &mut count, &mut seen_paths, settings)?;
+    let mut batch = ScanBatchTx::new(conn);
+    scan_recursive(
+        conn,
+        path,
+        app,
+        &mut count,
+        &mut seen_paths,
+        &mut batch,
+        settings,
+    )?;
+    batch.finish()?;
     remove_missing_tracks(conn, &root, &seen_paths)?;
 
     app.emit("scan-complete", count).ok();
@@ -51,6 +134,7 @@ fn scan_recursive(
     app: &AppHandle,
     count: &mut u32,
     seen_paths: &mut HashSet<String>,
+    batch: &mut ScanBatchTx<'_>,
     settings: &AppSettings,
 ) -> Result<(), String> {
     let entries = std::fs::read_dir(dir).map_err(|e| format!("Cannot read dir: {}", e))?;
@@ -59,7 +143,7 @@ fn scan_recursive(
         let path = entry.path();
 
         if path.is_dir() {
-            scan_recursive(conn, &path, app, count, seen_paths, settings)?;
+            scan_recursive(conn, &path, app, count, seen_paths, batch, settings)?;
             continue;
         }
 
@@ -70,10 +154,12 @@ fn scan_recursive(
 
         if let Some(ext) = ext {
             if SUPPORTED_EXTENSIONS.contains(&ext.as_str()) {
-                match extract_and_insert(conn, &path, &ext, settings) {
-                    Ok(_) => {
+                batch.ensure_transaction()?;
+                match extract_and_insert_in_savepoint(conn, &path, &ext, settings) {
+                    Ok(()) => {
                         seen_paths.insert(path.to_string_lossy().to_string());
                         *count += 1;
+                        batch.after_file_success()?;
                         if *count % 50 == 0 {
                             app.emit("scan-progress", *count).ok();
                         }

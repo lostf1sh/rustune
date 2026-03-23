@@ -100,6 +100,7 @@ pub fn run() {
             commands::playback::get_playback_state,
             commands::library::scan_folder,
             commands::library::get_tracks,
+            commands::library::get_tracks_page,
             commands::library::search_tracks,
             commands::library::get_track_count,
             commands::library::get_library_roots,
