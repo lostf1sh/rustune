@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { throttle } from "../../lib/throttle";
 import { usePlayerStore } from "../../stores/playerStore";
 import { useLibraryStore } from "../../stores/libraryStore";
 import { useSettingsStore } from "../../stores/settingsStore";
@@ -68,12 +69,15 @@ export function PlayerBar() {
     });
   }, [currentTrack]);
 
+  const throttledSeek = useMemo(() => throttle(seek, 50), [seek]);
+  const throttledVolume = useMemo(() => throttle(setVolume, 30), [setVolume]);
+
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    seek(parseFloat(e.target.value));
+    throttledSeek(parseFloat(e.target.value));
   };
 
   const handleVolume = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setVolume(parseFloat(e.target.value));
+    throttledVolume(parseFloat(e.target.value));
   };
 
   const progress = durationSecs > 0 ? (positionSecs / durationSecs) * 100 : 0;

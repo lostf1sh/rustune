@@ -1,6 +1,6 @@
 use tauri::State;
 
-use crate::db::DbConn;
+use crate::db::DbPool;
 use crate::library::scanner;
 use crate::settings::SettingsState;
 use crate::tags::editor::{self, AlbumArt, TagInfo, TagUpdate};
@@ -19,13 +19,13 @@ pub fn read_tags(path: String) -> Result<TagInfo, String> {
 pub fn write_tags(
     path: String,
     tags: TagUpdate,
-    db: State<'_, DbConn>,
+    db: State<'_, DbPool>,
     settings: State<'_, SettingsState>,
 ) -> Result<(), String> {
     editor::write_tags(&path, &tags)?;
 
     // Re-scan this file to update DB with new metadata
-    let conn = db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get().map_err(|e| e.to_string())?;
     let current_settings = settings.lock().map_err(|e| e.to_string())?.0.clone();
     scanner::rescan_file(&conn, &path, &current_settings)?;
 

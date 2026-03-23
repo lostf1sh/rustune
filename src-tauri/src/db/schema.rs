@@ -71,6 +71,10 @@ pub fn create_tables(conn: &Connection) -> Result<(), String> {
         CREATE INDEX IF NOT EXISTS idx_tracks_path ON tracks(path);
         CREATE INDEX IF NOT EXISTS idx_track_artists_name ON track_artists(artist_name);
         CREATE INDEX IF NOT EXISTS idx_tracks_album_artist ON tracks(album_artist);
+        CREATE INDEX IF NOT EXISTS idx_tracks_favorite ON tracks(favorite) WHERE favorite = 1;
+        CREATE INDEX IF NOT EXISTS idx_play_history_composite ON play_history(played_at DESC, track_id);
+        CREATE INDEX IF NOT EXISTS idx_track_artists_track_id ON track_artists(track_id);
+        CREATE INDEX IF NOT EXISTS idx_tracks_album_albumartist ON tracks(album, album_artist);
         ",
     )
     .map_err(|e| format!("Failed to create tables: {}", e))

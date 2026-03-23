@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { throttle } from "../../lib/throttle";
 import { usePlayerStore } from "../../stores/playerStore";
 import { useLibraryStore } from "../../stores/libraryStore";
 import { useSettingsStore } from "../../stores/settingsStore";
@@ -214,13 +215,15 @@ export function NowPlaying() {
     };
   }, [currentTrack, trackMeta, durationSecs, libraryRevision]);
 
+  const throttledSeek = useMemo(() => throttle(seek, 50), [seek]);
+  const throttledVolume = useMemo(() => throttle(setVolume, 30), [setVolume]);
   const handleSeek = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => seek(parseFloat(e.target.value)),
-    [seek]
+    (e: React.ChangeEvent<HTMLInputElement>) => throttledSeek(parseFloat(e.target.value)),
+    [throttledSeek]
   );
   const handleVolume = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setVolume(parseFloat(e.target.value)),
-    [setVolume]
+    (e: React.ChangeEvent<HTMLInputElement>) => throttledVolume(parseFloat(e.target.value)),
+    [throttledVolume]
   );
   const handleLyricSeek = useCallback(
     (timeMs: number) => seek(timeMs / 1000),

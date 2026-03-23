@@ -7,7 +7,7 @@ use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tauri::{AppHandle, Emitter};
 
 use crate::db::queries;
-use crate::db::DbConn;
+use crate::db::DbPool;
 use crate::library::scanner;
 use crate::settings::SettingsState;
 
@@ -19,13 +19,13 @@ const DEBOUNCE_MS: u64 = 1000;
 
 pub struct LibraryWatcher {
     watchers: Arc<Mutex<HashMap<String, RecommendedWatcher>>>,
-    db: DbConn,
+    db: DbPool,
     app: AppHandle,
     settings: SettingsState,
 }
 
 impl LibraryWatcher {
-    pub fn new(db: DbConn, app: AppHandle, settings: SettingsState) -> Self {
+    pub fn new(db: DbPool, app: AppHandle, settings: SettingsState) -> Self {
         Self {
             watchers: Arc::new(Mutex::new(HashMap::new())),
             db,
@@ -80,7 +80,7 @@ impl LibraryWatcher {
     }
 
     pub fn watch_all_roots(&self) -> Result<(), String> {
-        let conn = self.db.lock().map_err(|e| e.to_string())?;
+        let conn = self.db.get().map_err(|e| e.to_string())?;
         let roots = queries::get_library_roots(&conn)?;
         drop(conn);
 
@@ -102,7 +102,7 @@ fn is_audio_file(path: &Path) -> bool {
 
 fn handle_events(
     rx: std::sync::mpsc::Receiver<notify::Result<Event>>,
-    db: DbConn,
+    db: DbPool,
     app: AppHandle,
     settings: SettingsState,
 ) {
@@ -124,7 +124,7 @@ fn handle_events(
                         EventKind::Remove(_) => {
                             pending.remove(&path_str);
                             // Immediately delete removed files
-                            if let Ok(conn) = db.lock() {
+                            if let Ok(conn) = db.get() {
                                 queries::delete_tracks_by_paths(&conn, &[path_str]).ok();
                             }
                             app.emit("library-changed", ()).ok();
@@ -149,22 +149,28 @@ fn handle_events(
             .collect();
 
         if !ready.is_empty() {
-            if let Ok(conn) = db.lock() {
+            if let Ok(conn) = db.get() {
+                let current_settings = match settings.lock() {
+                    Ok(guard) => guard.0.clone(),
+                    Err(e) => {
+                        log::warn!("Settings lock failed during batch rescan: {}", e);
+                        for path_str in &ready {
+                            pending.remove(path_str);
+                        }
+                        continue;
+                    }
+                };
+                // Wrap batch of rescans in a single transaction
+                conn.execute("BEGIN IMMEDIATE", []).ok();
                 for path_str in &ready {
                     pending.remove(path_str);
                     if Path::new(path_str).exists() {
-                        let current_settings = match settings.lock() {
-                            Ok(guard) => guard.0.clone(),
-                            Err(e) => {
-                                log::warn!("Settings lock failed during rescan: {}", e);
-                                continue;
-                            }
-                        };
                         if let Err(e) = scanner::rescan_file(&conn, path_str, &current_settings) {
                             log::warn!("Rescan failed for {}: {}", path_str, e);
                         }
                     }
                 }
+                conn.execute("COMMIT", []).ok();
             }
             app.emit("library-changed", ()).ok();
         }

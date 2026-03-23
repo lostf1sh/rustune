@@ -23,6 +23,8 @@ interface PlaylistStore {
   selectedAlbumTracks: Track[];
   /** Avoid repeated `get_album_tracks` IPC when re-opening the same album. */
   albumTracksCache: Map<string, { tracks: Track[]; libraryRevision: number }>;
+  /** Avoid repeated `get_artist_tracks` IPC when re-selecting the same artist. */
+  artistTracksCache: Map<string, { tracks: Track[]; libraryRevision: number }>;
 
   // Favorites / Recent
   favoriteTracks: Track[];
@@ -68,6 +70,7 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   selectedAlbum: null,
   selectedAlbumTracks: [],
   albumTracksCache: new Map(),
+  artistTracksCache: new Map(),
   favoriteTracks: [],
   recentTracks: [],
 
@@ -127,8 +130,16 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   },
 
   selectArtist: async (name: string) => {
+    const rev = useLibraryStore.getState().libraryRevision;
+    const hit = get().artistTracksCache.get(name);
+    if (hit && hit.libraryRevision === rev) {
+      set({ selectedArtist: name, selectedArtistTracks: hit.tracks });
+      return;
+    }
     const tracks = await commands.getArtistTracks(name);
-    set({ selectedArtist: name, selectedArtistTracks: tracks });
+    const nextCache = new Map(get().artistTracksCache);
+    nextCache.set(name, { tracks, libraryRevision: rev });
+    set({ selectedArtist: name, selectedArtistTracks: tracks, artistTracksCache: nextCache });
   },
 
   viewAlbums: () => {
@@ -202,8 +213,11 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
     }
 
     if (viewMode === "artists" && selectedArtist) {
+      const rev = useLibraryStore.getState().libraryRevision;
       const tracks = await commands.getArtistTracks(selectedArtist);
-      set({ selectedArtistTracks: tracks });
+      const nextArtistCache = new Map(get().artistTracksCache);
+      nextArtistCache.set(selectedArtist, { tracks, libraryRevision: rev });
+      set({ selectedArtistTracks: tracks, artistTracksCache: nextArtistCache });
       return;
     }
 

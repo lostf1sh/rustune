@@ -1,7 +1,7 @@
 use tauri::{AppHandle, Emitter, State};
 
 use crate::db::queries;
-use crate::db::DbConn;
+use crate::db::DbPool;
 use crate::library::watcher::LibraryWatcher;
 use crate::settings::{self, AppSettings, SettingsState};
 
@@ -63,12 +63,12 @@ pub fn reset_settings(
 
 #[tauri::command]
 pub fn rebuild_artist_index(
-    db: State<'_, DbConn>,
+    db: State<'_, DbPool>,
     state: State<'_, SettingsState>,
     app: AppHandle,
 ) -> Result<(), String> {
     let settings = state.lock().map_err(|e| e.to_string())?.0.clone();
-    let conn = db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get().map_err(|e| e.to_string())?;
     queries::rebuild_track_artists(&conn, &settings)?;
     app.emit("library-changed", ()).ok();
     Ok(())

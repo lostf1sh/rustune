@@ -61,7 +61,7 @@ export function AlbumView() {
   const { playQueue, currentTrack, isPlaying } = usePlayerStore();
   const libraryRevision = useLibraryStore((s) => s.libraryRevision);
   const albumGridArtByKey = useLibraryStore((s) => s.albumGridArtByKey);
-  const setAlbumGridArt = useLibraryStore((s) => s.setAlbumGridArt);
+  const setAlbumGridArtBatch = useLibraryStore((s) => s.setAlbumGridArtBatch);
   const {
     selectedAlbum,
     selectedAlbumTracks,
@@ -85,6 +85,14 @@ export function AlbumView() {
     getItemKey: (index) => selectedAlbumTracks[index]?.id ?? index,
   });
 
+  const filtered = filter
+    ? albums.filter(
+        (a) =>
+          a.album.toLowerCase().includes(filter.toLowerCase()) ||
+          (a.albumArtist?.toLowerCase().includes(filter.toLowerCase()) ?? false)
+      )
+    : albums;
+
   useEffect(() => {
     commands.getAlbums().then(setAlbums);
   }, [libraryRevision]);
@@ -100,21 +108,43 @@ export function AlbumView() {
     artLoadRef.current.clear();
   }, [libraryRevision]);
 
-  // Lazy-load covers into global store so grid/detail survive leaving Albums view.
+  // Lazy-load covers in batches with concurrency limit to avoid IPC spam.
   useEffect(() => {
+    const BATCH_SIZE = 6;
+    const pending: { key: string; path: string }[] = [];
+
     for (const album of albums) {
       if (!album.artTrackPath) continue;
       const key = `${album.album}||${album.albumArtist ?? ""}`;
       const artByKey = useLibraryStore.getState().albumGridArtByKey;
       if (Object.prototype.hasOwnProperty.call(artByKey, key)) continue;
       if (artLoadRef.current.has(key)) continue;
-      artLoadRef.current.add(key);
-      commands.getAlbumArt(album.artTrackPath).then((art) => {
-        artLoadRef.current.delete(key);
-        setAlbumGridArt(key, art ?? null);
-      });
+      pending.push({ key, path: album.artTrackPath });
     }
-  }, [albums, setAlbumGridArt]);
+
+    let cancelled = false;
+
+    async function loadBatches() {
+      for (let i = 0; i < pending.length; i += BATCH_SIZE) {
+        if (cancelled) return;
+        const batch = pending.slice(i, i + BATCH_SIZE);
+        batch.forEach((item) => artLoadRef.current.add(item.key));
+        const results = await Promise.all(
+          batch.map((item) => commands.getAlbumArt(item.path).then((art) => ({ key: item.key, art })))
+        );
+        if (cancelled) return;
+        const entries: Record<string, import("../../lib/commands").AlbumArt | null> = {};
+        for (const r of results) {
+          artLoadRef.current.delete(r.key);
+          entries[r.key] = r.art ?? null;
+        }
+        setAlbumGridArtBatch(entries);
+      }
+    }
+
+    loadBatches();
+    return () => { cancelled = true; };
+  }, [albums, setAlbumGridArtBatch]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -122,14 +152,6 @@ export function AlbumView() {
     window.addEventListener("click", handleClick);
     return () => window.removeEventListener("click", handleClick);
   }, [contextMenu]);
-
-  const filtered = filter
-    ? albums.filter(
-        (a) =>
-          a.album.toLowerCase().includes(filter.toLowerCase()) ||
-          (a.albumArtist?.toLowerCase().includes(filter.toLowerCase()) ?? false)
-      )
-    : albums;
 
   const handlePlay = async (index: number) => {
     const paths = selectedAlbumTracks.map((t) => t.path);

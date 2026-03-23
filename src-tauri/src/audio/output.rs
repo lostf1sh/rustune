@@ -1,10 +1,17 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Stream, StreamConfig};
-use std::sync::{Arc, Mutex};
+use ringbuf::{
+    traits::{Consumer, Observer, Producer, Split},
+    HeapProd, HeapRb,
+};
 
 pub struct AudioOutput {
     _stream: Stream,
-    buffer: Arc<Mutex<Vec<f32>>>,
+    producer: HeapProd<f32>,
+    flush: Arc<AtomicBool>,
     sample_rate: u32,
     channels: u16,
 }
@@ -22,22 +29,28 @@ impl AudioOutput {
             buffer_size: cpal::BufferSize::Default,
         };
 
-        let buffer: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
-        let buffer_clone = Arc::clone(&buffer);
+        // ~1 second of audio buffer
+        let capacity = (sample_rate as usize) * (channels as usize);
+        let rb = HeapRb::<f32>::new(capacity);
+        let (producer, mut consumer) = rb.split();
+
+        let flush = Arc::new(AtomicBool::new(false));
+        let flush_cb = Arc::clone(&flush);
 
         let stream = device
             .build_output_stream(
                 &config,
                 move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                    let mut buf = buffer_clone.lock().unwrap();
-                    let len = data.len().min(buf.len());
-                    if len > 0 {
-                        data[..len].copy_from_slice(&buf[..len]);
-                        buf.drain(..len);
+                    if flush_cb.load(Ordering::Relaxed) {
+                        // Discard all buffered data
+                        let n = consumer.occupied_len();
+                        consumer.skip(n);
+                        flush_cb.store(false, Ordering::Relaxed);
+                        data.fill(0.0);
+                        return;
                     }
-                    for sample in &mut data[len..] {
-                        *sample = 0.0;
-                    }
+                    let read = consumer.pop_slice(data);
+                    data[read..].fill(0.0);
                 },
                 |err| {
                     log::error!("Audio output error: {}", err);
@@ -52,7 +65,8 @@ impl AudioOutput {
 
         Ok(Self {
             _stream: stream,
-            buffer,
+            producer,
+            flush,
             sample_rate,
             channels,
         })
@@ -63,14 +77,14 @@ impl AudioOutput {
     }
 
     pub fn clear(&self) {
-        self.buffer.lock().unwrap().clear();
+        self.flush.store(true, Ordering::Relaxed);
     }
 
     pub fn buffered_samples(&self) -> usize {
-        self.buffer.lock().unwrap().len()
+        self.producer.occupied_len()
     }
 
-    pub fn write(&self, samples: &[f32]) {
-        self.buffer.lock().unwrap().extend_from_slice(samples);
+    pub fn write(&mut self, samples: &[f32]) -> usize {
+        self.producer.push_slice(samples)
     }
 }

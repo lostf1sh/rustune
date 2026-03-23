@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { commands, type PlaybackState, type RepeatMode } from "../lib/commands";
+import { commands, type PlaybackPosition, type QueueStatePayload, type RepeatMode } from "../lib/commands";
 
 interface PlayerStore {
   isPlaying: boolean;
@@ -12,7 +12,8 @@ interface PlayerStore {
   shuffle: boolean;
   repeat: RepeatMode;
 
-  updateFromBackend: (state: PlaybackState) => void;
+  updatePosition: (pos: PlaybackPosition) => void;
+  updateQueueState: (qs: QueueStatePayload) => void;
   playFile: (path: string) => Promise<void>;
   playQueue: (tracks: string[], index: number) => Promise<void>;
   togglePlayPause: () => Promise<void>;
@@ -43,17 +44,22 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   shuffle: false,
   repeat: "off",
 
-  updateFromBackend: (state: PlaybackState) => {
+  updatePosition: (pos: PlaybackPosition) => {
     set({
-      isPlaying: state.isPlaying,
-      currentTrack: state.currentTrack,
-      positionSecs: state.positionSecs,
-      durationSecs: state.durationSecs,
-      volume: state.volume,
-      queue: state.queue,
-      queueIndex: state.queueIndex,
-      shuffle: state.shuffle,
-      repeat: state.repeat,
+      isPlaying: pos.isPlaying,
+      currentTrack: pos.currentTrack,
+      positionSecs: pos.positionSecs,
+      durationSecs: pos.durationSecs,
+      volume: pos.volume,
+    });
+  },
+
+  updateQueueState: (qs: QueueStatePayload) => {
+    set({
+      queue: qs.queue,
+      queueIndex: qs.queueIndex,
+      shuffle: qs.shuffle,
+      repeat: qs.repeat,
     });
   },
 

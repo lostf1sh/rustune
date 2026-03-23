@@ -14,11 +14,13 @@ import { usePlayerStore } from "./stores/playerStore";
 import { useLibraryStore } from "./stores/libraryStore";
 import { usePlaylistStore } from "./stores/playlistStore";
 import { useSettingsStore } from "./stores/settingsStore";
-import { commands, type PlaybackState } from "./lib/commands";
+import { commands, type PlaybackPosition, type QueueStatePayload } from "./lib/commands";
+import { applyTheme } from "./lib/themes";
 import styles from "./App.module.css";
 
 function App() {
-  const updateFromBackend = usePlayerStore((s) => s.updateFromBackend);
+  const updatePosition = usePlayerStore((s) => s.updatePosition);
+  const updateQueueState = usePlayerStore((s) => s.updateQueueState);
   const nowPlayingOpen = usePlayerStore((s) => s.nowPlayingOpen);
   const loadTracks = useLibraryStore((s) => s.loadTracks);
   const loadRoots = useLibraryStore((s) => s.loadRoots);
@@ -28,10 +30,15 @@ function App() {
 
   const loadSettings = useSettingsStore((s) => s.loadSettings);
   const compactMode = useSettingsStore((s) => s.settings.compactMode);
+  const theme = useSettingsStore((s) => s.settings.theme);
 
   useEffect(() => {
     document.getElementById("root")?.setAttribute("data-compact", String(compactMode));
   }, [compactMode]);
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   useEffect(() => {
     loadTracks();
@@ -53,16 +60,21 @@ function App() {
     return () => { unlisten.then((fn) => fn()); };
   }, [loadTracks, refreshActiveView]);
 
-  // Playback state listener + window title update
+  // Playback position listener (lightweight, every 100ms)
   useEffect(() => {
-    const unlisten = listen<PlaybackState>("playback-state", (event) => {
-      updateFromBackend(event.payload);
+    const unlisten = listen<PlaybackPosition>("playback-position", (event) => {
+      updatePosition(event.payload);
     });
+    return () => { unlisten.then((fn) => fn()); };
+  }, [updatePosition]);
 
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [updateFromBackend]);
+  // Queue state listener (only when queue changes)
+  useEffect(() => {
+    const unlisten = listen<QueueStatePayload>("queue-state", (event) => {
+      updateQueueState(event.payload);
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  }, [updateQueueState]);
 
   // Record play history when track changes
   const currentTrack = usePlayerStore((s) => s.currentTrack);

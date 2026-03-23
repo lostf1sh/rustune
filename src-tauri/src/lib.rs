@@ -40,14 +40,13 @@ pub fn run() {
                 Arc::new(Mutex::new((app_settings.clone(), config_path)));
             app.manage(settings_state.clone());
 
-            // Initialize database
-            let conn = db::init_db(&app_data_dir, &app_settings).map_err(|e| e.to_string())?;
-            let db_conn: db::DbConn = Arc::new(Mutex::new(conn));
-            app.manage(db_conn.clone());
+            // Initialize database (connection pool)
+            let pool = db::init_db(&app_data_dir, &app_settings).map_err(|e| e.to_string())?;
+            app.manage(pool.clone());
 
             // Start library file watcher (only if autoWatch enabled)
             let watcher = library::watcher::LibraryWatcher::new(
-                db_conn,
+                pool.clone(),
                 app.handle().clone(),
                 settings_state,
             );
@@ -60,14 +59,14 @@ pub fn run() {
 
             // Scan on startup if enabled
             if scan_on_startup {
-                let db_for_scan: db::DbConn = app.state::<db::DbConn>().inner().clone();
+                let db_pool = pool.clone();
                 let app_handle = app.handle().clone();
                 std::thread::spawn(move || {
-                    let conn = db_for_scan.lock().unwrap();
+                    let conn = db_pool.get().unwrap();
                     let roots = db::queries::get_library_roots(&conn).unwrap_or_default();
                     drop(conn);
                     for root in roots {
-                        let conn = db_for_scan.lock().unwrap();
+                        let conn = db_pool.get().unwrap();
                         library::scanner::scan_folder(
                             &conn,
                             &root.path,

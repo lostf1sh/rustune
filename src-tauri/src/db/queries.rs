@@ -43,7 +43,7 @@ pub struct InsertTrack {
 }
 
 pub fn upsert_track(conn: &Connection, track: &InsertTrack) -> Result<i64, String> {
-    conn.execute(
+    conn.query_row(
         "INSERT INTO tracks (path, title, artist, album, album_artist, genre, track_number, disc_number, year, duration_ms, file_size, format, sample_rate, bit_depth, has_art, modified_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, datetime('now'))
          ON CONFLICT(path) DO UPDATE SET
@@ -53,7 +53,8 @@ pub fn upsert_track(conn: &Connection, track: &InsertTrack) -> Result<i64, Strin
             year=excluded.year, duration_ms=excluded.duration_ms,
             file_size=excluded.file_size, format=excluded.format,
             sample_rate=excluded.sample_rate, bit_depth=excluded.bit_depth,
-            has_art=excluded.has_art, modified_at=datetime('now')",
+            has_art=excluded.has_art, modified_at=datetime('now')
+         RETURNING id",
         params![
             track.path,
             track.title,
@@ -71,15 +72,9 @@ pub fn upsert_track(conn: &Connection, track: &InsertTrack) -> Result<i64, Strin
             track.bit_depth,
             track.has_art,
         ],
-    )
-    .map_err(|e| format!("Failed to insert track: {}", e))?;
-
-    conn.query_row(
-        "SELECT id FROM tracks WHERE path = ?1",
-        params![track.path],
         |row| row.get(0),
     )
-    .map_err(|e| format!("Failed to fetch track id: {}", e))
+    .map_err(|e| format!("Failed to upsert track: {}", e))
 }
 
 fn row_to_track(row: &rusqlite::Row) -> rusqlite::Result<Track> {
@@ -198,12 +193,18 @@ pub fn get_track_paths_in_root(conn: &Connection, root: &str) -> Result<Vec<Stri
 }
 
 pub fn delete_tracks_by_paths(conn: &Connection, paths: &[String]) -> Result<(), String> {
-    let mut stmt = conn
-        .prepare("DELETE FROM tracks WHERE path = ?1")
-        .map_err(|e| e.to_string())?;
-
-    for path in paths {
-        stmt.execute(params![path]).map_err(|e| e.to_string())?;
+    for chunk in paths.chunks(500) {
+        let placeholders: String = chunk
+            .iter()
+            .enumerate()
+            .map(|(i, _)| format!("?{}", i + 1))
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!("DELETE FROM tracks WHERE path IN ({})", placeholders);
+        let params: Vec<&dyn rusqlite::types::ToSql> =
+            chunk.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
+        conn.execute(&sql, params.as_slice())
+            .map_err(|e| e.to_string())?;
     }
 
     Ok(())
@@ -354,18 +355,23 @@ pub struct AlbumInfo {
 pub fn get_albums(conn: &Connection) -> Result<Vec<AlbumInfo>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT
-                t.album,
-                t.album_artist,
-                MIN(t.year) as year,
-                COUNT(*) as track_count,
-                MAX(t.has_art) as has_art,
-                (SELECT t2.path FROM tracks t2
-                 WHERE t2.album = t.album
-                   AND COALESCE(t2.album_artist, '') = COALESCE(t.album_artist, '')
-                   AND t2.has_art = 1
-                 LIMIT 1) as art_track_path
+            "WITH album_art AS (
+                 SELECT album, COALESCE(album_artist, '') AS aa, MIN(path) AS art_path
+                 FROM tracks
+                 WHERE has_art = 1
+                 GROUP BY album, COALESCE(album_artist, '')
+             )
+             SELECT
+                 t.album,
+                 t.album_artist,
+                 MIN(t.year) as year,
+                 COUNT(*) as track_count,
+                 MAX(t.has_art) as has_art,
+                 aa.art_path as art_track_path
              FROM tracks t
+             LEFT JOIN album_art aa
+                 ON aa.album = t.album
+                 AND aa.aa = COALESCE(t.album_artist, '')
              WHERE t.album IS NOT NULL AND t.album != ''
              GROUP BY t.album, COALESCE(t.album_artist, '')
              ORDER BY t.album COLLATE NOCASE",

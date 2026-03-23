@@ -1,7 +1,7 @@
 use tauri::State;
 
 use crate::db::queries;
-use crate::db::DbConn;
+use crate::db::DbPool;
 use crate::lyrics::lrclib::{self, LyricsResult};
 use crate::settings::SettingsState;
 
@@ -12,7 +12,7 @@ pub async fn fetch_lyrics(
     artist: String,
     album: String,
     duration_secs: f64,
-    db: State<'_, DbConn>,
+    db: State<'_, DbPool>,
     settings: State<'_, SettingsState>,
 ) -> Result<LyricsResult, String> {
     // 1. Check for local .lrc file (if preferLocalLrc enabled)
@@ -39,7 +39,7 @@ pub async fn fetch_lyrics(
 
     // 2. Check DB cache
     {
-        let conn = db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get().map_err(|e| e.to_string())?;
         if let Some(cached) = queries::get_cached_lyrics(&conn, &track_path)? {
             let synced = cached.synced_lyrics.as_deref().map(lrclib::parse_lrc);
             return Ok(LyricsResult {
@@ -54,7 +54,7 @@ pub async fn fetch_lyrics(
 
     // 4. Cache result
     {
-        let conn = db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get().map_err(|e| e.to_string())?;
         queries::cache_lyrics(
             &conn,
             &track_path,

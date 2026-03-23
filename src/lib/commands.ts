@@ -14,6 +14,21 @@ export interface PlaybackState {
   repeat: RepeatMode;
 }
 
+export interface PlaybackPosition {
+  isPlaying: boolean;
+  currentTrack: string | null;
+  positionSecs: number;
+  durationSecs: number;
+  volume: number;
+}
+
+export interface QueueStatePayload {
+  queue: string[];
+  queueIndex: number | null;
+  shuffle: boolean;
+  repeat: RepeatMode;
+}
+
 export interface Track {
   id: number;
   path: string;
@@ -108,6 +123,7 @@ export interface AppSettings {
   compactMode: boolean;
   showQueueBadge: boolean;
   customArtistSeparators: string[];
+  theme: string;
 }
 
 export const commands = {

@@ -104,11 +104,13 @@ impl Decoder {
         }
     }
 
-    pub fn next_samples(&mut self) -> Option<Vec<f32>> {
+    /// Decodes the next packet into the provided buffer, returning true if samples were produced.
+    /// The buffer is cleared and reused (capacity preserved across calls).
+    pub fn next_samples(&mut self, output: &mut Vec<f32>) -> bool {
         loop {
             let packet = match self.format.next_packet() {
                 Ok(p) => p,
-                Err(_) => return None,
+                Err(_) => return false,
             };
 
             if packet.track_id() != self.track_id {
@@ -118,61 +120,57 @@ impl Decoder {
             match self.decoder.decode(&packet) {
                 Ok(decoded) => {
                     let num_frames = decoded.frames();
-                    let samples = audio_buf_to_f32(&decoded, self.channels);
+                    audio_buf_to_f32(&decoded, self.channels, output);
                     self.position_samples += num_frames as u64;
-                    return Some(samples);
+                    return true;
                 }
                 Err(symphonia::core::errors::Error::DecodeError(_)) => {
-                    // Skip corrupted packets
                     continue;
                 }
-                Err(_) => return None,
+                Err(_) => return false,
             }
         }
     }
 }
 
-fn audio_buf_to_f32(buf: &AudioBufferRef, channels: usize) -> Vec<f32> {
+fn audio_buf_to_f32(buf: &AudioBufferRef, channels: usize, output: &mut Vec<f32>) {
+    output.clear();
     match buf {
         AudioBufferRef::F32(b) => {
-            let mut samples = Vec::with_capacity(b.frames() * channels);
+            output.reserve(b.frames() * channels);
             for frame in 0..b.frames() {
                 for ch in 0..channels {
-                    samples.push(*b.chan(ch).get(frame).unwrap_or(&0.0));
+                    output.push(*b.chan(ch).get(frame).unwrap_or(&0.0));
                 }
             }
-            samples
         }
         AudioBufferRef::S16(b) => {
-            let mut samples = Vec::with_capacity(b.frames() * channels);
+            output.reserve(b.frames() * channels);
             for frame in 0..b.frames() {
                 for ch in 0..channels {
                     let s = *b.chan(ch).get(frame).unwrap_or(&0);
-                    samples.push(s as f32 / i16::MAX as f32);
+                    output.push(s as f32 / i16::MAX as f32);
                 }
             }
-            samples
         }
         AudioBufferRef::S32(b) => {
-            let mut samples = Vec::with_capacity(b.frames() * channels);
+            output.reserve(b.frames() * channels);
             for frame in 0..b.frames() {
                 for ch in 0..channels {
                     let s = *b.chan(ch).get(frame).unwrap_or(&0);
-                    samples.push(s as f32 / i32::MAX as f32);
+                    output.push(s as f32 / i32::MAX as f32);
                 }
             }
-            samples
         }
         AudioBufferRef::U8(b) => {
-            let mut samples = Vec::with_capacity(b.frames() * channels);
+            output.reserve(b.frames() * channels);
             for frame in 0..b.frames() {
                 for ch in 0..channels {
                     let s = *b.chan(ch).get(frame).unwrap_or(&128);
-                    samples.push((s as f32 - 128.0) / 128.0);
+                    output.push((s as f32 - 128.0) / 128.0);
                 }
             }
-            samples
         }
-        _ => Vec::new(),
+        _ => {}
     }
 }

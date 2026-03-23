@@ -37,6 +37,7 @@ interface LibraryStore {
   setSearchQuery: (query: string) => Promise<void>;
   setSort: (field: SortField) => void;
   setAlbumGridArt: (key: string, art: AlbumArt | null) => void;
+  setAlbumGridArtBatch: (entries: Record<string, AlbumArt | null>) => void;
 }
 
 function sortTracks(tracks: Track[], field: SortField, dir: SortDir): Track[] {
@@ -120,6 +121,12 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   setAlbumGridArt: (key: string, art: AlbumArt | null) => {
     set((s) => ({
       albumGridArtByKey: { ...s.albumGridArtByKey, [key]: art },
+    }));
+  },
+
+  setAlbumGridArtBatch: (entries: Record<string, AlbumArt | null>) => {
+    set((s) => ({
+      albumGridArtByKey: { ...s.albumGridArtByKey, ...entries },
     }));
   },
 
