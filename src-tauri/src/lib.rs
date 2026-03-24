@@ -132,5 +132,34 @@ pub fn run() {
             commands::settings::rebuild_artist_index,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|e| {
+            let msg = format!("Failed to start Rustune:\n{}", e);
+            eprintln!("{}", msg);
+            show_fatal_error(&msg);
+        });
+}
+
+fn show_fatal_error(message: &str) {
+    #[cfg(target_os = "windows")]
+    {
+        use std::ffi::OsStr;
+        use std::os::windows::ffi::OsStrExt;
+        use std::ptr;
+
+        extern "system" {
+            fn MessageBoxW(hwnd: *mut std::ffi::c_void, text: *const u16, caption: *const u16, utype: u32) -> i32;
+        }
+
+        let text: Vec<u16> = OsStr::new(message).encode_wide().chain(Some(0)).collect();
+        let caption: Vec<u16> = OsStr::new("Rustune").encode_wide().chain(Some(0)).collect();
+
+        unsafe {
+            MessageBoxW(ptr::null_mut(), text.as_ptr(), caption.as_ptr(), 0x10);
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = message;
+    }
 }
