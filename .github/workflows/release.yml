@@ -37,7 +37,7 @@ jobs:
           - platform: windows-latest
             args: --bundles msi,nsis
           - platform: macos-latest
-            args: --bundles app,dmg
+            args: --target universal-apple-darwin --bundles app,dmg
 
     runs-on: ${{ matrix.platform }}
 
@@ -65,6 +65,12 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Rust targets for universal macOS binary
+        if: matrix.platform == 'macos-latest'
+        run: |
+          rustup target add aarch64-apple-darwin
+          rustup target add x86_64-apple-darwin
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
